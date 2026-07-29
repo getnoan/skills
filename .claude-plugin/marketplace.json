@@ -1,0 +1,19 @@
+{
+  "name": "noan-skills",
+  "owner": {
+    "name": "NOAN",
+    "email": "hello@getnoan.com",
+    "url": "https://getnoan.com"
+  },
+  "plugins": [
+    {
+      "name": "noan",
+      "source": "./",
+      "description": "Ground any agent in your company's verified facts via the NOAN API — read facts, contacts, notes, and tasks; write back with human confirmation.",
+      "author": { "name": "NOAN", "url": "https://getnoan.com" },
+      "homepage": "https://getnoan.com/agents",
+      "license": "MIT",
+      "keywords": ["noan", "facts", "grounding", "crm", "tasks", "api"]
+    }
+  ]
+}
