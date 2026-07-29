@@ -78,6 +78,7 @@ curl -s https://api.getnoan.com/v1/me -H "Authorization: Bearer $NOAN_API_KEY"
 | Fact edit history | `GET /facts/{factId}/versions` (paginated, newest lineage of one fact) |
 | Search contacts | `GET /contacts?q=<query>` |
 | Get one contact | `GET /contacts/{contactId}` |
+| List notes | `GET /notes` (free-standing project notes; a contact's memos live on `GET /contacts/{contactId}`) |
 | List tags | `GET /tags` |
 | List tasks | `GET /tasks` (params: `status`, `completed`; `status=null` → tasks with no board column) |
 | List assets | `GET /assets` (params: `tag_id`, `sort` = `createdAt`\|`updatedAt`, `order`) |
@@ -124,6 +125,8 @@ prior entry survived. Posting only the new entry wipes the rest.
 | Update contact | `PATCH /contacts/{contactId}` | any subset above |
 | Add contact notes | `POST /contacts/{contactId}/notes` | `notes[]` |
 | Create note | `POST /notes` | `content` (+ title, externalId) |
+| Create asset | `POST /assets` | `title`, `text` (+ description, createPrompt, tagIds[]) — creates the asset with its first version |
+| Add asset version | `POST /assets/{assetId}/versions` | `text` (+ title, description, createPrompt — omitted fields keep the asset's current values) — becomes the active version |
 | Create task | `POST /tasks` | `title` (+ details, dueDate `YYYY-MM-DD`, status, externalId) |
 | Update task | `PATCH /tasks/{taskId}` | any subset of `title`, `details`, `dueDate`, `completed`, `status` (`backlog`/`in-progress`/`done`) — partial, omitted fields untouched |
 | Set task tags | `PUT /tasks/{taskId}/tags` | `tagIds[]` |
@@ -138,6 +141,12 @@ curl -s -X POST https://api.getnoan.com/v1/facts \
 ```
 
 `externalId` on notes/tasks is an idempotency handle — use it to avoid duplicates.
+
+Assets are the one write that appends: to update an asset's content,
+`POST /assets/{assetId}/versions` — the new version becomes `activeVersion`,
+history is kept. Never create a second asset to update an existing one.
+`createPrompt` is provenance — when content comes from a generation flow, store
+the prompt that produced it.
 
 ## Errors
 
