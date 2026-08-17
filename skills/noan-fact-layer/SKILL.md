@@ -74,8 +74,9 @@ After auth succeeds, check `GET /facts?per_page=1` and read `meta.totalItems`.
 - Send `per_page` (snake_case, max 100) and `page` (1-based). Read back
   `meta.perPage` (camelCase). Don't reuse the response field name in requests.
 - Paginate while `meta.hasNext` is true, or follow `links.next` (a full URL).
-- Facts are addressed by block **slug**: `GET /facts?block_slug=<slug>` (repeat
-  the param to fetch several blocks at once).
+- `GET /facts` returns the whole fact base (paginated). `block_slug=<slug>` is
+  an optional filter (repeat the param to fetch several blocks at once) — use it
+  when you already know which block you need, not to search.
 - Writes return `201` (create), `200` (update), or `204` (no body — the task
   `PUT` set-endpoints).
 - `PUT /tasks/{id}/{tags,assignees,contacts}` **replace** the set, not append.
@@ -106,13 +107,20 @@ applying a tag. Asset content lives in `activeVersion`
 (`{title, text, createPrompt}`); `text` is the content, `createPrompt` its
 provenance.
 
-Grounding pattern:
+Grounding pattern — read the whole fact base unless you know the exact block:
 
 ```bash
-curl -s "https://api.getnoan.com/v1/facts?block_slug=customer-profile" \
+curl -s "https://api.getnoan.com/v1/facts?per_page=100" \
   -H "Authorization: Bearer $NOAN_API_KEY"
-# items[].content are the verified facts. Build the answer from these.
+# items[].content are the verified facts. Follow links.next while meta.hasNext
+# is true, then build the answer from the facts. Only if you already know which
+# block holds the answer, narrow with ?block_slug=<slug> instead.
 ```
+
+Block titles and slugs don't always match a question's topic, so do not pick a
+few likely-looking blocks and search them: fetching the wrong blocks and finding
+nothing is not evidence of absence. **Never report a fact as missing until you
+have read the full fact base.**
 
 Fact item shape: `{ id, blockSlug, content, createdAt }`.
 
@@ -180,7 +188,8 @@ permission, e.g. read-only on write (stop) · `404` bad slug/id (re-resolve) ·
 ## Guidelines
 
 - Ground before generating; build company answers from `items[].content`.
-- Never fabricate a fact. Missing → say so.
+- Never fabricate a fact. Missing → say so — but only call a fact missing after
+  reading the full fact base, not a subset of blocks.
 - Reads free; writes need explicit user confirmation.
 - A `403` on write means read-only by design — stop.
 - Never expose the API key.
