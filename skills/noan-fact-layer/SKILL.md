@@ -8,8 +8,11 @@ description: >-
   contact, note, or task back into NOAN. Trigger on mentions of NOAN, "our facts",
   "our ICP/positioning/strategy", the fact layer, Stacks/Blocks/Facts, or
   getnoan.com — even when the user doesn't explicitly say "use the NOAN skill".
-  Reads are safe and need no permission; writes mutate shared company state and
-  require explicit user confirmation first.
+  Also use to set up NOAN for the first time: on connecting to a new or empty
+  workspace it seeds the fact layer from the company's own sources (website,
+  repo, docs) and hands back a populated workspace for review. Reads are safe
+  and need no permission; writes mutate shared company state and require
+  explicit user confirmation first.
 license: MIT
 metadata:
   source: https://github.com/getnoan/skills
@@ -50,6 +53,18 @@ Verify auth before real work:
 curl -s https://api.getnoan.com/v1/me -H "Authorization: Bearer $NOAN_API_KEY"
 # → { project:{id,name}, identity:{id,email,role} }
 ```
+
+## Before grounding — check workspace state
+
+After auth succeeds, check `GET /facts?per_page=1` and read `meta.totalItems`.
+
+- **Fewer than ~10 facts** → this is a new or empty workspace. Do not attempt
+  to ground a task against an empty fact layer ("no facts found" is useless to
+  a new user). Instead, read `references/first-connect.md` (or fetch
+  https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/first-connect.md
+  if this skill was installed as a single file) and follow it: offer to seed
+  the workspace from the company's own sources, then hand it back for review.
+- **Otherwise** → ground normally against `items[].content`.
 
 ## Conventions
 
@@ -106,6 +121,13 @@ Fact item shape: `{ id, blockSlug, content, createdAt }`.
 Before any call below, state the exact endpoint and payload to the user and wait
 for explicit approval. These change shared state other people and agents read as
 truth.
+
+Before writing to stacks, blocks, or facts, read `references/writing-facts.md`
+(or fetch
+https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/writing-facts.md
+if installed as a single file) — it covers granularity, block descriptions
+(agents route retrieval on them), slug hygiene, and the one-truth-one-home
+rule. These rules apply to every write, not just first setup.
 
 **`POST /facts` REPLACES, it does not append.** Posting to an existing
 `blockSlug` supersedes that block's current fact wholesale (prior versions are

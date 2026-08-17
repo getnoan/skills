@@ -8,7 +8,7 @@ The NOAN API itself is plain REST with a bearer key. Full spec: https://api.getn
 
 | Skill | What it does |
 |---|---|
-| [`noan-fact-layer`](skills/noan-fact-layer/SKILL.md) | Read and write verified company facts, contacts, notes, and tasks through the NOAN API. Grounding-first: agents answer from facts, not guesses. |
+| [`noan-fact-layer`](skills/noan-fact-layer/SKILL.md) | Read and write verified company facts, contacts, notes, and tasks through the NOAN API. Grounding-first: agents answer from facts, not guesses. On first connect to an empty workspace it runs a guided setup — seeding the fact layer from your website, repo, and docs, then handing it back for review ([references/](skills/noan-fact-layer/references)). |
 
 ## Install
 
