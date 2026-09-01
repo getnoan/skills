@@ -42,10 +42,15 @@ ask the user to paste the key into chat; never print, log, or echo it. The key's
 scope (read vs. read+write) is the real boundary — a `403` on a write means it's
 a read-only key; stop, don't work around it.
 
-**Unattended agents:** the reads-free / writes-confirmed split below assumes a
-human in the loop. If this skill runs headless (cron, CI, an autonomous fleet),
-run with a read-only key so the API enforces the boundary — a `403` on write is
-the guardrail working, not an error to route around.
+**Unattended agents: the key's scope is the consent.** The reads-free /
+writes-confirmed split below is for interactive use, where a human is present
+to ask. Headless (cron, CI, an autonomous fleet), the human decision was made
+when the key was provisioned: a **read+write key** given to an unattended job
+means its owner chose to let that job write — write without asking, with the
+same care as ever (idempotency, complete-document fact posts, memos over
+fact edits when in doubt). Scope a headless job's key **read-only** when its
+writes should stay human-gated — a `403` on write then means the key was
+scoped that way on purpose; stop, don't route around it.
 
 Verify auth before real work:
 
@@ -124,11 +129,12 @@ have read the full fact base.**
 
 Fact item shape: `{ id, blockSlug, content, createdAt }`.
 
-## Writes — confirm with the user first
+## Writes — confirm with the user first (interactive)
 
-Before any call below, state the exact endpoint and payload to the user and wait
-for explicit approval. These change shared state other people and agents read as
-truth.
+Interactively, before any call below, state the exact endpoint and payload to
+the user and wait for explicit approval — these change shared state other
+people and agents read as truth. Headless, there is no one to ask: the key's
+scope carries the decision (see Unattended agents above).
 
 Before writing to stacks, blocks, or facts, read `references/writing-facts.md`
 (or fetch
@@ -190,6 +196,6 @@ permission, e.g. read-only on write (stop) · `404` bad slug/id (re-resolve) ·
 - Ground before generating; build company answers from `items[].content`.
 - Never fabricate a fact. Missing → say so — but only call a fact missing after
   reading the full fact base, not a subset of blocks.
-- Reads free; writes need explicit user confirmation.
+- Reads free; interactive writes need explicit user confirmation. Headless, the key's scope is the consent.
 - A `403` on write means read-only by design — stop.
 - Never expose the API key.
