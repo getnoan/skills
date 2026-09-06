@@ -30,15 +30,37 @@ A description must say what's inside *and when to reach for it*:
   disqualifiers. Read before writing any outbound, sales, or positioning
   copy.`
 
-## Naming
+## Naming — you choose titles, the API chooses slugs
 
-Slugs are semantic addresses agents resolve against.
+**There is no slug field on any write.** `POST /stacks` and
+`POST /stacks/{stackId}/blocks` accept `title` and `description` only; the slug
+is generated from the title and returned in the create response. Use the slug
+that comes back — don't construct one and don't expect it to be tidy. A block
+you create lands on something like
+`fed75daf-agent-config-a28bc-agent-ideas-catalog`
+(`<stack-id-prefix>-<stack-title>-<random>-<block-title>`). Short, clean slugs
+like `customer-profile` belong to NOAN's managed template blocks and are not
+what your writes produce.
 
-- Plain, predictable, hyphenated: `customer-profile`, `pricing-starter`.
-- Before creating a block, check for near-twins (`GET /blocks?slug=…`,
-  `GET /blocks?title=…`). `product-strategy` and `productstrategy` will
-  both get retrieved and will drift apart within a month. If a near-twin
-  exists, update it — don't create a sibling.
+So the title is the whole lever: it's what the slug derives from and what
+`GET /blocks?title=` searches. Write it plain and hyphenatable.
+
+Before creating a block, check for near-twins with **`GET /blocks?title=…`**,
+which is a case-insensitive substring match. Do **not** use `?slug=` for this —
+it is exact-match, so it returns 0 for anything but the full generated slug and
+reads as "no such block" for a block that exists. `product-strategy` and
+`productstrategy` will both get retrieved and will drift apart within a month.
+If a near-twin exists, add to it — don't create a sibling. The API agrees:
+creating a stack whose title already exists, or a block whose title already
+exists in that stack, is a `409` conflict, not a second copy.
+
+One consequence worth internalising: because you can't predict a slug, an empty
+`GET /facts?block_slug=<the-name-you-guessed>` means **you guessed the wrong
+slug**, not that the block has no fact. Resolve through `GET /blocks` first,
+every time.
+
+Blocks can only be added to **custom** stacks. Managed stacks cannot be created
+or modified through the API.
 
 ## One truth, one home
 
@@ -56,10 +78,24 @@ already has content, the mandatory pattern is:
 1. `GET /facts?block_slug=…` and take the current content **verbatim**
 2. Splice your change into it
 3. `POST` the complete amended content
-4. Re-read and verify the block holds exactly 1 fact and every prior entry
-   survived
+4. Re-read and diff: every prior entry must still be present, and the new
+   content should be no shorter than the old minus what you deliberately removed
 
 Posting only your new entry wipes the rest. There is no partial write.
+
+Step 4 has to be a real content diff. Counting facts proves nothing —
+`GET /facts?block_slug=…` returns the single latest fact per block by
+construction, so it reads `1` whether your splice preserved everything or
+destroyed it. If you kept the fact `id` from before the write, walk
+`GET /facts/{factId}/versions` to compare against the prior version directly;
+any version id in a chain resolves the whole chain, so an id captured earlier
+still works after the write.
+
+Don't guard the amended content against a length limit. Facts have no enforced
+ceiling in practice — a live production fact currently runs past 38,000
+characters — and since this pattern re-posts the whole block every time, content
+grows monotonically by design. A guard set to a documented-looking number would
+start silently refusing writes to exactly the blocks that matter most.
 
 ## Provenance and honesty
 
@@ -67,6 +103,8 @@ Posting only your new entry wipes the rest. There is no partial write.
   reasoned your way to a claim, flag it to the user before writing.
 - Missing information becomes a task (`POST /tasks`), never a
   plausible-looking fact. A confidently wrong fact is worse than an absent
-  one — every downstream agent grounds on it.
+  one — every downstream agent grounds on it. Task `details` caps at 2048
+  characters and is rejected, not truncated, above it: for a longer handoff
+  `POST /notes` (25,000) and reference the note from `details`.
 - Convert relative dates ("last quarter", "next month") to absolute ones at
   write time; facts outlive the conversation that produced them.

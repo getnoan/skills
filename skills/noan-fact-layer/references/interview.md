@@ -44,7 +44,21 @@ it before it becomes truth.
 
 ## Writing it up
 
-Map answers to blocks per the structure rules in `writing-facts.md`. Every
-question the user answered with "not settled yet" or "I don't know" becomes
-a task (`POST /tasks`), not a fact. Close by telling the user exactly which
-blocks exist, which are stubs, and what single action comes next.
+Map answers to blocks per the structure rules in `writing-facts.md`, then
+**propose that structure and get one explicit yes before writing** — the same
+gate as step 3 of `first-connect.md`, and it applies here too. Reflecting back
+each batch of answers confirms the content; it does not confirm the shape, and
+the shape is the part that is expensive to redo. Present it as stacks → blocks
+→ one line on what goes in each, then write.
+
+Take the generated block slugs from the `POST /stacks` response; don't build
+them from titles (see `writing-facts.md`).
+
+Every question the user answered with "not settled yet" or "I don't know"
+becomes a task (`POST /tasks`), not a fact. If you may run this path more than
+once for a workspace, dedupe those tasks client-side on `externalId` — the API
+neither enforces it nor lets you filter by it (see step 5 of
+`first-connect.md`).
+
+Close by telling the user exactly which blocks exist, which are stubs, and what
+single action comes next.

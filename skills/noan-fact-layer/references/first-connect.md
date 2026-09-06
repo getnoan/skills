@@ -10,8 +10,11 @@ their own verified truth. Never leave them staring at an empty workspace.
 ## Step 0 — Preflight, then stop
 
 Verify auth (`GET /me`). List existing stacks and blocks
-(`GET /stacks?in_use_only=true`, `GET /blocks`). Then **state the plan and
-wait for a yes.**
+(`GET /stacks?in_use_only=true`, `GET /blocks?in_use_only=true`). Keep
+`in_use_only` on both: a bare `GET /blocks` also returns NOAN's managed
+template catalogue, which is hundreds of blocks in every project including a
+brand-new one, and makes an empty workspace look populated. Then **state the
+plan and wait for a yes.**
 
 Create nothing in steps 0–3. Every write is shared state the user's whole
 team and every future agent will read as truth. Tell the user, in order:
@@ -81,8 +84,18 @@ in each, with counts. Get a single explicit yes. Then write.
 
 ## Step 4 — Write, block by block
 
-Create stacks with their blocks via `POST /stacks` (every block needs
-`title` **and** `description`). Then fill each block with `POST /facts`.
+Create stacks with their blocks via `POST /stacks` — on this endpoint every
+nested block needs `title` **and** `description` (both required; titles are
+3–512 characters). Then fill each block with `POST /facts`.
+
+**Take the block slugs from the create response; never construct one.** The
+`201` returns `{"stack": {id, slug, title, description, managed, blocks[]}}`,
+and each entry in `blocks[]` carries the generated `slug` — which will be
+prefixed and unlovely, e.g.
+`fed75daf-agent-config-a28bc-agent-ideas-catalog`. That is the string
+`POST /facts` wants as `blockSlug`. Guessing a tidy slug from the title is the
+single easiest way to make this step fail, and it fails quietly: the fact posts
+against nothing you can find, or the call 404s on a slug that was never real.
 
 Remember: **`POST /facts` replaces the block's content wholesale.** Compose
 the complete content for a block in memory and post it once. Never post a
@@ -97,10 +110,19 @@ Write only **verified** claims. Hold inferred ones for the hand-off list.
 ## Step 5 — Record the gaps as work, not prose
 
 For every gap, `POST /tasks`: what's missing, why an agent will need it, and
-where the answer probably lives. Use `externalId` (e.g.
-`seed-gap-<block-slug>`) so re-runs don't duplicate. This turns "your
-workspace is incomplete" from a criticism into a to-do list — and it is what
-brings the user back on day two.
+where the answer probably lives. Keep `details` under 2048 characters — it is
+rejected, not truncated, above that; put a long rationale in `POST /notes`
+(25,000) and reference it.
+
+Set `externalId` (e.g. `seed-gap-<block-slug>`), but **do the dedupe yourself**.
+Nothing enforces uniqueness on it, and the filter you would reach for does not
+exist: `GET /tasks?externalId=…` is silently ignored and returns the **entire
+board** at `200`, so a re-run that trusts it sees a long list of matches that
+match nothing. `GET /tasks` does return `externalId` on each task, so page the
+board (`per_page=100`) and compare client-side before creating.
+
+This turns "your workspace is incomplete" from a criticism into a to-do list —
+and it is what brings the user back on day two.
 
 ## Step 6 — Hand off with one link and three lines
 
@@ -130,6 +152,11 @@ output is grounded in them" while the seeding is fresh.
 - Never fabricate. Missing is a finding; report it.
 - Never write an unlabelled inference.
 - Never post a partial block.
-- Be idempotent: before creating a stack or block, check whether the slug or
-  a near-twin already exists. Re-running this sequence must not double the
-  workspace.
+- Be idempotent: before creating a stack or block, check for a near-twin by
+  **title** — `GET /stacks?title=…`, `GET /blocks?title=…`, a case-insensitive
+  substring match. Don't check by slug: `?slug=` is exact-match, and for a
+  block you haven't created yet you cannot know the generated slug, so it
+  answers 0 for things that exist. The API backstops you here — a duplicate
+  stack title, or a duplicate block title within a stack, is a `409` conflict
+  rather than a second copy — but a `409` mid-run is a stall, not a plan.
+  Re-running this sequence must not double the workspace.
