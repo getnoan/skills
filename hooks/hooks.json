@@ -1,0 +1,16 @@
+{
+  "description": "Ambient fact capture — a standing reminder to queue durable business facts for NOAN review as they surface, rather than only when someone remembers to ask.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat \"${CLAUDE_PLUGIN_ROOT}/hooks/capture-instruction.md\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
