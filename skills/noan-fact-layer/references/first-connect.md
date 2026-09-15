@@ -79,6 +79,11 @@ Follow the rules in `writing-facts.md` (granularity, descriptions, naming) —
 they are load-bearing, especially block descriptions, which agents use to
 route retrieval.
 
+Start from "What a fact layer should cover" there — the seven areas most
+businesses need answered — then shape the draft to *this* business. Managed
+stacks are a map to check against, not a mould: create custom stacks and blocks
+for whatever this company actually runs on, and expect to create several.
+
 Present the proposal as: stacks → blocks → one-line description of what goes
 in each, with counts. Get a single explicit yes. Then write.
 
@@ -92,7 +97,7 @@ nested block needs `title` **and** `description` (both required; titles are
 `201` returns `{"stack": {id, slug, title, description, managed, blocks[]}}`,
 and each entry in `blocks[]` carries the generated `slug` — which will be
 prefixed and unlovely, e.g.
-`fed75daf-agent-config-a28bc-agent-ideas-catalog`. That is the string
+`c4e19a7b-clinical-services-5f2dd-orthopaedic-surgery`. That is the string
 `POST /facts` wants as `blockSlug`. Guessing a tidy slug from the title is the
 single easiest way to make this step fail, and it fails quietly: the fact posts
 against nothing you can find, or the call 404s on a slug that was never real.
