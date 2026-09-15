@@ -242,7 +242,7 @@ preserved the block or destroyed it. Posting only the new entry wipes the rest.
 curl -s -X POST https://api.getnoan.com/v1/facts \
   -H "Authorization: Bearer $NOAN_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"blockSlug":"customer-profile","content":"..."}'
+  -d '{"blockSlug":"c4e19a7b-clinical-services-5f2dd-orthopaedic-surgery","content":"..."}'
 ```
 
 **Contact writes reject an explicit `null` on every optional field**, even
