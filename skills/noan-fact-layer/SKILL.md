@@ -168,8 +168,14 @@ Fact item shape: `{ id, blockSlug, content, createdAt }`.
 Managed stacks are NOAN's starting map of a business, present in every
 workspace and not modifiable. Custom stacks and blocks are how a workspace
 takes the shape of the business it belongs to — expected, not exceptional. You
-cannot add a block to a managed stack, so any topic the map doesn't already
-carry is a custom stack by construction.
+cannot add a block to a managed stack, so a topic neither the generic stacks nor
+an industry stack carries is a custom stack by construction.
+
+**The map is wider than the generic stacks.** It also carries industry ones —
+`Restaurant`, `Fund`, `Agency`, `Consulting`, `Education`, `Real Estate` and
+many more — holding the topics you would otherwise invent a custom stack for.
+Scan `GET /stacks` for one matching the business before deciding anything is
+custom.
 
 Most businesses need these seven areas covered somewhere. It is a checklist for
 coverage, not a schema to conform to:
@@ -185,7 +191,8 @@ regulatory regime.
 Check where each already lives before creating anything: the managed map covers
 most of these, and does not always name them the way you would. Team is the trap
 — there is no managed `Team` stack, but leadership, staffing and hiring all have
-managed blocks. `references/writing-facts.md` lists them per area.
+managed blocks. `references/writing-facts.md` lists them per area, and names the
+industry stacks worth scanning for.
 
 Write each fact as a reference entry, not an answer: an H1 matching the block
 title, a lead sentence that stands alone out of context, a short body in

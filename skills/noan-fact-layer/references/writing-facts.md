@@ -220,10 +220,11 @@ afterwards — there is no update route for either.
 
 **Know what a description can and cannot do.** No read endpoint returns one:
 `GET /stacks` gives `{id, slug, title, managed, blocks}` and `GET /blocks` gives
-`{id, slug, title, managed, stack}`. The only place one comes back at all is a
-create response, and not dependably even there — so treat a description as
-write-and-forget from the API's side, and as something the humans curating the
-workspace read in the app. An agent grounding over the API routes on **titles** and on the **content
+`{id, slug, title, managed, stack}`. The only place one comes back is a create
+response — `POST /stacks` returns it on the stack and on each nested block,
+`POST /stacks/{stackId}/blocks` on the block — and nowhere else, ever. Treat a
+description as write-and-forget from the API's side, and as something the humans
+curating the workspace read in the app. An agent grounding over the API routes on **titles** and on the **content
 of the facts themselves** — so anything a later reader must know has to be in
 the fact, not in the description around it.
 
