@@ -37,19 +37,27 @@ Most businesses need these seven areas answered somewhere. Treat it as a
 checklist for coverage, not a schema to conform to: it tells you what an agent
 will come looking for, not what your stacks have to be called.
 
-| Area | An agent should be able to answer | Often already lives in |
-|---|---|---|
-| **Customer** | Who we sell to, how the market segments, who is explicitly not a fit | managed `Customer` |
-| **Product** | What we sell, what each part does, where it's going, what it costs | managed `Product`, plus a custom `Pricing` stack — one block per plan tier or service |
-| **Brand** | What we stand for, how we position, how we sound | managed `Brand` |
-| **Sales** | Who qualifies, how a deal runs, what we say to the objections we hear | managed `Sales`, plus a custom `Objection Handling` stack |
-| **Team** | Who does what, who decides, how we hire | no managed home — a custom `Team` stack |
-| **Goals** | What we're trying to hit this quarter and this year, and how it's measured | managed `Growth` |
-| **Operations** | How the company runs day to day: tooling, policies, recurring processes | managed `Operations` |
+| Area | An agent should be able to answer | Managed blocks that already hold it | Usually added as custom |
+|---|---|---|---|
+| **Customer** | Who we sell to, how the market segments, what each segment cares about | `ideal-customer`, `audience-segments`, `audience-description`, `audience-interests` — stack `Customer` | a block per segment, once four stop being enough |
+| **Product** | What we sell, what each part does, where it's going | `product-list`, `product-features`, `product-strategy`, `product-roadmap`, `product-FAQ`, `product-case-studies`, `product-discount` — stack `Product` | a `Pricing` stack: one block per tier or service |
+| **Brand** | What we stand for, how we position, how we sound | `brand-positioning`, `value-proposition`, `mission-vision`, `business-impact`, `brand-tone`, `brand-identity`, `brand-experience-principles` — stack `Brand` | rarely anything |
+| **Sales** | Who qualifies, who we turn away, how a deal runs | `sales-customer-profile`, `sales-ICP-triggers`, `sales-buyer-persona`, `sales-buyer-segments`, `sales-process`, `sales-principles`, `sales-objectives-metrics`, `sales-proposal-format` — stack `Sales` | an `Objection Handling` stack: one block per objection |
+| **Team** | Who does what, who decides, how we hire | `operations-leadership-bios`, `business-staffing` — stack `Operations`; `hr-process`, `hr-jobdescription` — stack `Recruiting` | a `Team` stack only for what those four can't hold (decision rights, org shape) — and then leave them empty rather than filling both |
+| **Goals** | What we're trying to hit, by when, and how it's measured | `year-goals`, `growth-okrs`, `growth-five-year`, `quarterly-planning`, `growth-metrics`, `growth-gtm-metrics` — stack `Growth` | a `Goals` stack when `Growth` is already being used for marketing only |
+| **Operations** | How the company runs day to day | `contact-details`, `operations-social-handles`, `privacy-policy`, `cookie-policy` — stack `Operations` | tooling, sites, capacity, recurring processes — the managed four cover contact details and policies, nothing else |
 
-The right-hand column is where to look first, not where the truth has to go.
-Read the workspace as it actually is — `GET /stacks?in_use_only=true` — before
-assuming either that a home exists or that it doesn't.
+The third column is where to look first, not where the truth has to go — but
+look, because writing a claim into a new block while a managed block already
+holds it is exactly the duplicate "One truth, one home" below is about. **Team is the row that catches
+people out:** there is no managed `Team` stack, which does not mean there is no
+managed home for the topic.
+
+Those slugs are the managed catalogue as it stood on 2026-09-16. Managed stacks
+ship in every workspace and their slugs are stable, but the catalogue does get
+extended — confirm with `GET /blocks` (each item carries `managed` and its
+parent stack) before relying on a name here, and use `in_use_only=true` to see
+only what this project has actually added.
 
 A gap in the checklist is a finding, not a failure. A two-person company with no
 sales process has nothing to write in that row, and an honest empty row beats a
@@ -149,15 +157,15 @@ Rough figures, deliberately so. These are the sizes that stay readable, not
 limits the API enforces.
 
 - **4–12 blocks per stack.** Below four, it often isn't a subject area — fold it
-  into a neighbour where you can. Where you can't, keep it: a three-block custom
-  stack is the right answer when the natural neighbour is a managed stack you
-  cannot add to, or when the subject is genuinely small but genuinely separate.
-  Past a dozen blocks, a stack has usually become two subjects, and descriptions
-  stop routing reliably.
+  into a neighbour while you are still planning, which is the only point at which
+  folding is free. Where you can't, keep it: a three-block custom stack is the
+  right answer when the natural neighbour is a managed stack you cannot add to,
+  or when the subject is genuinely small but genuinely separate. Past a dozen
+  blocks, a stack has usually become two subjects.
 - **Most facts run 500–4,000 characters.** Under a couple of hundred, the block
-  is a fragment that would serve better merged into its neighbour. Past ~6,000,
-  it is usually two blocks that have grown together. Nothing enforces this (see
-  The replace rule), so drift is yours to notice.
+  is a fragment that would sit better inside its neighbour. Past ~6,000, it is
+  usually two blocks that have grown together. Nothing enforces this (see The
+  replace rule), so drift is yours to notice.
 - **One plan, persona, segment, site or service line per block** — never one
   omnibus block holding all of them. They change on different days, and because
   every write replaces the whole block, an edit to one rewrites all of them.
@@ -166,18 +174,45 @@ Split on the axis that changes independently: truths that always move together
 belong in one block, truths that can move separately are two. That is the
 Granularity test above, applied to a block that has outgrown itself.
 
-There is no move operation, so splitting is done by hand: create the new
-block, post the part that belongs there, then re-post the original block
-without it. The original keeps its slug and its whole version history, and the
-new block starts empty of both — so say in the new block's first fact where its
-content came from, and make sure neither half now restates the other.
+**There is no move, and no delete.** The API has no `DELETE` on anything and no
+`PATCH`/`PUT` on stacks, blocks or facts, so both splitting and merging are done
+by hand and neither is free:
 
-## Descriptions are routing instructions, not summaries
+- **Splitting.** Create the new block, post the part that belongs there, then
+  re-post the original block without it. The original keeps its slug and its
+  whole version history; the new block starts with neither, so say in its first
+  fact where the content came from. If the outgrown block sits in a *managed*
+  stack, the new half goes in a custom stack —
+  `POST /stacks/{stackId}/blocks` on a managed stack is refused
+  (`403 ResourceNotAllowed`), and a split that assumes otherwise dies halfway
+  with one block already rewritten.
+- **Merging.** Copy the content into the neighbour and the original block still
+  answers `GET /facts` with its old fact — you have made the duplicate the next
+  section forbids. There is no way to remove it. Either leave a pointer fact in
+  the source block ("Superseded: this content now lives in <block>"), or don't
+  merge and let the small block stand.
 
-Every stack and block gets a description written for a **retrieving agent**,
-not a human browsing a sidebar. Agents read descriptions first and only open
-a block they judge relevant — a block with a vague description is
-effectively invisible no matter how good its content.
+Which is why the sizes above are worth applying while you are still drafting a
+structure. After the blocks exist, every correction costs more than getting it
+roughly right did.
+
+## Descriptions — what they're for, and what they aren't
+
+Every stack and block gets a description, written on create and never
+afterwards — there is no update route for either.
+
+**Know what a description can and cannot do.** No read endpoint returns one:
+`GET /stacks` gives `{id, slug, title, managed, blocks}` and `GET /blocks` gives
+`{id, slug, title, managed, stack}`. A description is echoed back once, on the
+create response, and is otherwise for the humans curating the workspace in the
+app. An agent grounding over the API routes on **titles** and on the **content
+of the facts themselves** — so anything a later reader must know has to be in
+the fact, not in the description around it.
+
+Write them anyway, and write them well: they are how a human decides what
+belongs in a block, which is what keeps two blocks from drifting into the same
+subject. Write for a reader deciding *whether to open this block* — a
+description that could sit above any block in the workspace is doing nothing.
 
 A description must say what's inside *and when to reach for it*. A stack
 description, bad and good:
@@ -187,8 +222,8 @@ description, bad and good:
   disqualifiers. Read before writing any outbound, sales, or positioning
   copy.`
 
-A block description, same test — it is what decides whether this block or its
-neighbour gets opened:
+A block description, same test — it is what tells the next person which of two
+neighbouring blocks their new claim belongs in:
 
 - Bad: `Dentistry`
 - Good: `Dental service line: what the practice treats, what it refers out,
@@ -247,22 +282,30 @@ a winner silently — the disagreement is usually a real disagreement inside the
 business, and resolving it is theirs to do, not yours.
 
 Overlap is easiest to create at the seams between areas, where a claim
-plausibly belongs to either side. Sensible defaults — the names below are the
-seven areas, not stack titles you must use, so read "Goals" as whichever stack
-holds your targets:
+plausibly belongs to either side. Owners below are areas, not stack titles you
+must adopt — read "Goals" as whichever stack holds your targets. `Pricing` is an
+area most businesses split out even though the managed map has no block for it.
 
-| Seam | Owner | Not the owner |
-|---|---|---|
-| Who we sell to | **Customer** — segments, market definition | Sales: the ICP is a qualifying filter, the buyer persona is an individual |
-| Why we win | **Brand** — positioning, value proposition | Product (what the feature does), Sales (how to argue it in a deal) |
-| What it costs | **Pricing** — one block per tier or service | Product (capability), Sales (discounting and approval rules) |
-| Numbers we chase | **Goals** — targets, OKRs, how they're measured | Sales (pipeline mechanics), Product (roadmap dates) |
-| People | **Team** — roles, leadership, hiring | Operations (contact details, policies, tooling) |
+| Seam | Owner | Managed home | Not the owner |
+|---|---|---|---|
+| Who we sell to | **Customer** — the market: segments, audience, what they care about | `audience-segments`, `ideal-customer` | Sales, which owns the filter, not the market |
+| Who we pursue | **Sales** — ICP, triggers, qualification *and* disqualification | `sales-customer-profile`, `sales-ICP-triggers`, `sales-buyer-persona` | Customer, which describes the market without qualifying it |
+| Why we win | **Brand** — positioning, value proposition | `brand-positioning`, `value-proposition` | Product (what the feature does), Sales (how to argue it in a deal) |
+| What it costs | **Pricing** — one block per tier or service | none: no managed pricing block exists | Product — except standing discount codes, which do have a managed home in `product-discount` — and Sales, which owns deal-level discretion and approval |
+| Numbers we chase | **Goals** — company targets, OKRs, how they're measured | `year-goals`, `growth-okrs`, `growth-metrics` | Sales (`sales-objectives-metrics` is quota and pipeline, not company targets), Product (roadmap dates) |
+| People | **Team** — roles, leadership, hiring | `operations-leadership-bios`, `business-staffing`, `hr-process` | Operations, which owns contact details and policies, not people |
+
+The ICP is the seam that goes wrong most often, because the managed map itself
+carries it twice: `ideal-customer` under Customer and `sales-customer-profile`
+under Sales. They are not duplicates if you keep the split above — the first
+describes who is out there, the second decides who you chase — but write them
+without deciding that, and they diverge.
 
 An area the checklist doesn't name — a channel, a partner programme, a
 franchise model — gets the same treatment: when you create it, decide what it
-owns and what it defers to, and write that into its stack description while the
-decision is fresh.
+owns and what it defers to, and put that in the owning block's own fact, where a
+later agent can actually read it. Not in the stack or block description: those
+are set on create and no read endpoint returns them (see Descriptions below).
 
 These apply to custom stacks too, and matter more there: a custom
 `Enterprise Sales` stack must defer to `Sales` on process and to `Pricing` on

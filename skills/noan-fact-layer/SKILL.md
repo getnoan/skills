@@ -174,12 +174,18 @@ carry is a custom stack by construction.
 Most businesses need these seven areas covered somewhere. It is a checklist for
 coverage, not a schema to conform to:
 
-**Customer** (who we sell to, who isn't a fit) · **Product** (what we sell, what
-it does, what it costs) · **Brand** (positioning, value proposition, tone) ·
-**Sales** (ICP, process, objections) · **Team** (who does what, who decides,
-hiring) · **Goals** (targets and how they're measured) · **Operations** (tooling,
-policies, recurring processes). Add whatever else the business actually runs on
-— service lines, sites, regions, a regulatory regime.
+**Customer** (who we sell to, how the market segments) · **Product** (what we
+sell, what it does, what it costs) · **Brand** (positioning, value proposition,
+tone) · **Sales** (who qualifies, who we turn away, how a deal runs, objections)
+· **Team** (who does what, who decides, hiring) · **Goals** (targets and how
+they're measured) · **Operations** (tooling, policies, recurring processes). Add
+whatever else the business actually runs on — service lines, sites, regions, a
+regulatory regime.
+
+Check where each already lives before creating anything: the managed map covers
+most of these, and does not always name them the way you would. Team is the trap
+— there is no managed `Team` stack, but leadership, staffing and hiring all have
+managed blocks. `references/writing-facts.md` lists them per area.
 
 Write each fact as a reference entry, not an answer: an H1 matching the block
 title, a lead sentence that stands alone out of context, a short body in
@@ -204,9 +210,10 @@ scope carries the decision (see Unattended agents above).
 Before writing to stacks, blocks, or facts, read `references/writing-facts.md`
 (or fetch
 https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/writing-facts.md
-if installed as a single file) — it covers granularity, block descriptions
-(agents route retrieval on them), slug hygiene, and the one-truth-one-home
-rule. These rules apply to every write, not just first setup.
+if installed as a single file) — it covers granularity, descriptions (required
+on create, and returned by no read endpoint), slug hygiene, and the
+one-truth-one-home rule. These rules apply to every write, not just first
+setup.
 
 **`POST /facts` REPLACES, it does not append.** Posting to an existing
 `blockSlug` supersedes that block's current fact wholesale (prior versions are

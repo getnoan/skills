@@ -76,8 +76,9 @@ they bought the product to fix.
 
 Draft the stack → block structure and show it before writing anything.
 Follow the rules in `writing-facts.md` (granularity, descriptions, naming) —
-they are load-bearing, especially block descriptions, which agents use to
-route retrieval.
+they are load-bearing. Note what a description can't do: it is set on create,
+no read endpoint returns it, and an agent grounding later sees only titles and
+fact content. Anything a future reader must know belongs in the fact.
 
 Start from "What a fact layer should cover" there — the seven areas most
 businesses need answered — then shape the draft to *this* business. Managed
