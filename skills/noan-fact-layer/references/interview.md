@@ -44,7 +44,10 @@ it before it becomes truth.
 
 ## Writing it up
 
-Map answers to blocks per the structure rules in `writing-facts.md`, then
+Map answers to blocks per the structure rules in `writing-facts.md` — the seven
+areas under "What a fact layer should cover", the fact shape under "The shape of
+a fact", and custom stacks for anything this business runs on that the managed
+map doesn't carry — then
 **propose that structure and get one explicit yes before writing** — the same
 gate as step 3 of `first-connect.md`, and it applies here too. Reflecting back
 each batch of answers confirms the content; it does not confirm the shape, and
