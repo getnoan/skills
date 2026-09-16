@@ -48,11 +48,9 @@ jobs:
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --body "Still failing as of $(date -u +%Y-%m-%d). Run: $RUN_URL"
           else
-            gh issue create --title "$title" \
-              --label documentation \
-              --body "The weekly conformance run failed, which means the skill states something the API no longer does.
-
-Run: $RUN_URL
-
-Read the failing check name — each one names the claim and the file that makes it. Fix the documentation rather than the check, unless the claim was merely reworded, in which case update its anchor."
+            body=$(printf '%s\n\n%s\n\n%s' \
+              "The weekly conformance run failed, which means the skill states something the API no longer does." \
+              "Run: $RUN_URL" \
+              "Read the failing check name — each one names the claim and the file that makes it. Fix the documentation rather than the check, unless the claim was merely reworded, in which case update its anchor.")
+            gh issue create --title "$title" --label documentation --body "$body"
           fi
