@@ -121,7 +121,10 @@ After auth succeeds, check `GET /facts?per_page=1` and read `meta.totalItems`.
 | List assets | `GET /assets` (params: `tag_id`, `sort` = `createdAt`\|`updatedAt`, `order`) |
 
 `in_use_only=true` limits stacks/blocks to those actually added to this
-project's knowledge base — usually what you want when grounding.
+project's knowledge base — what you want when grounding. Leave it **off** when
+scanning for an industry stack: the catalogue holds stacks this project has not
+adopted, and the filter hides exactly those. If the right home turns out to be
+unadopted, say so — no API route adopts a managed stack, only the app does.
 
 Tags carry their own `usageInstructions` field — read and follow it before
 applying a tag. Asset content lives in `activeVersion`

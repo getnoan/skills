@@ -62,11 +62,26 @@ and those hold exactly the topics you would otherwise invent a custom stack for.
 **Scan `GET /stacks` for one that matches the business before proposing any
 structure.**
 
-Two separate reasons to check live rather than trust the names above: an
-industry stack for this business may exist and not be listed here, and the
-catalogue gets extended over time. `GET /blocks` returns `managed` and the
-parent stack on every item; `in_use_only=true` narrows either call to what this
-project has actually added.
+**Two calls, two purposes — don't cross them.** Unfiltered, `GET /stacks` and
+`GET /blocks` return the whole catalogue the key can reach, including stacks this
+project has never adopted. That is what you scan for an industry stack, and
+scanning it with `in_use_only=true` on is precisely how you miss the one you were
+looking for. With the filter on you get this project's own map, which is what you
+want when grounding an answer and during first connect, where the unfiltered
+catalogue makes an empty workspace look populated. Both carry `managed` and the
+parent stack on every item.
+
+**A home named above may not be adopted here.** Being in the catalogue and being
+in this project's map are different things: `Growth` and `Recruiting` are often
+absent from the map even though the table sends Goals and hiring to them, and
+then `GET /blocks?in_use_only=true` returns none of those blocks. Check with the
+filter on before concluding anything — and when a home exists in the catalogue
+but not in this project, **say so and ask the user to add that stack in the
+app.** No API route adopts one: `POST /stacks` creates a custom stack and nothing
+adds a managed one. Writing into an unadopted block may go through — facts do
+exist in that state — but it puts company truth where the workspace's own map
+does not show it, and creating a custom near-twin instead is the duplicate
+"One truth, one home" is about. Neither is yours to choose silently.
 
 Where a managed block already holds a fact, none of this is undoable: there is
 no delete for a fact or a block, so you cannot empty one side to make room for
