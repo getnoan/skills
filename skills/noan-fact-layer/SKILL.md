@@ -33,6 +33,13 @@ inventing an answer. Absence of a fact is information — report it, don't fill 
 gap with a guess. But an empty `GET /facts?block_slug=…` usually means a wrong
 slug, not a missing fact; confirm the block exists before reporting absence.
 
+**When this file and the API disagree, the API wins.** These notes are checked
+against the live spec and a read-only call nightly (`tests/conformance.mjs`),
+but a copy installed as a single file can be months old and nothing updates it.
+If a response contradicts something here — a field that now exists, a limit that
+has moved, an endpoint that answers differently — trust the response, carry on,
+and tell the user which part of the skill is stale.
+
 ## Auth
 
 Base URL `https://api.getnoan.com/v1`. Every request sends:

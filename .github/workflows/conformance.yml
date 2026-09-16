@@ -1,0 +1,58 @@
+name: conformance
+
+# The skill is documentation that makes checkable claims about a live API.
+# This job is what stops those claims rotting quietly between releases.
+#
+# Pull requests run the spec checks only: NOAN_API_KEY is not exposed to forks,
+# and this repository is public. Pushes to main and the weekly run add the
+# read-only live checks — eight GETs, Mondays. The cheap, timely signal is meant
+# to come from the push side (a spec change in getnoan/noan), not from polling
+# here; this schedule is the backstop for changes that never touch the spec,
+# such as a managed block being renamed.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check the skill against the spec and the live API
+        env:
+          NOAN_API_KEY: ${{ secrets.NOAN_API_KEY }}
+        run: node tests/conformance.mjs
+
+      # A failure nobody sees is the same problem as a doc nobody
+      # rechecks, so the schedule files an issue rather than reddening a log.
+      - name: File an issue on a scheduled failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Conformance: the skill and the live API disagree"
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still failing as of $(date -u +%Y-%m-%d). Run: $RUN_URL"
+          else
+            gh issue create --title "$title" \
+              --label documentation \
+              --body "The weekly conformance run failed, which means the skill states something the API no longer does.
+
+Run: $RUN_URL
+
+Read the failing check name — each one names the claim and the file that makes it. Fix the documentation rather than the check, unless the claim was merely reworded, in which case update its anchor."
+          fi
