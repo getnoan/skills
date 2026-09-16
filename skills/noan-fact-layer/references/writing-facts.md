@@ -43,7 +43,7 @@ will come looking for, not what your stacks have to be called.
 | **Product** | What we sell, what each part does, where it's going | `product-list`, `product-features`, `product-strategy`, `product-roadmap`, `product-FAQ`, `product-case-studies`, `product-discount` — stack `Product` | a `Pricing` stack: one block per tier or service |
 | **Brand** | What we stand for, how we position, how we sound | `brand-positioning`, `value-proposition`, `mission-vision`, `business-impact`, `brand-tone`, `brand-identity`, `brand-experience-principles` — stack `Brand` | rarely anything |
 | **Sales** | Who qualifies, who we turn away, how a deal runs | `sales-customer-profile`, `sales-ICP-triggers`, `sales-buyer-persona`, `sales-buyer-segments`, `sales-process`, `sales-principles`, `sales-objectives-metrics`, `sales-proposal-format` — stack `Sales` | an `Objection Handling` stack: one block per objection |
-| **Team** | Who does what, who decides, how we hire | `operations-leadership-bios`, `business-staffing` — stack `Operations`; `hr-process`, `hr-jobdescription` — stack `Recruiting` | a `Team` stack only for what those four can't hold (decision rights, org shape) — and then leave them empty rather than filling both |
+| **Team** | Who does what, who decides, how we hire | `operations-leadership-bios`, `business-staffing` — stack `Operations`; `hr-process`, `hr-jobdescription` — stack `Recruiting` | a `Team` stack only for what those four can't hold (decision rights, org shape) — keep its blocks off the topics the managed four own |
 | **Goals** | What we're trying to hit, by when, and how it's measured | `year-goals`, `growth-okrs`, `growth-five-year`, `quarterly-planning`, `growth-metrics`, `growth-gtm-metrics` — stack `Growth` | a `Goals` stack when `Growth` is already being used for marketing only |
 | **Operations** | How the company runs day to day | `contact-details`, `operations-social-handles`, `privacy-policy`, `cookie-policy` — stack `Operations` | tooling, sites, capacity, recurring processes — the managed four cover contact details and policies, nothing else |
 
@@ -53,11 +53,25 @@ holds it is exactly the duplicate "One truth, one home" below is about. **Team i
 people out:** there is no managed `Team` stack, which does not mean there is no
 managed home for the topic.
 
-Those slugs are the managed catalogue as it stood on 2026-09-16. Managed stacks
-ship in every workspace and their slugs are stable, but the catalogue does get
-extended — confirm with `GET /blocks` (each item carries `managed` and its
-parent stack) before relying on a name here, and use `in_use_only=true` to see
-only what this project has actually added.
+Those slugs cover the seven generic stacks only, as they stood on 2026-09-16.
+**They are not the whole managed map.** Alongside the generic stacks it carries
+industry ones — `Restaurant` (`restaurant-menu`, `restaurant-signature-dish`),
+`Fund` (`fund-thesis`, `check-size`, `fund-portfolio`), plus `Agency`,
+`Consulting`, `Education`, `Real Estate`, `Farm`, `Non-profit` and many more —
+and those hold exactly the topics you would otherwise invent a custom stack for.
+**Scan `GET /stacks` for one that matches the business before proposing any
+structure.**
+
+Two separate reasons to check live rather than trust the names above: an
+industry stack for this business may exist and not be listed here, and the
+catalogue gets extended over time. `GET /blocks` returns `managed` and the
+parent stack on every item; `in_use_only=true` narrows either call to what this
+project has actually added.
+
+Where a managed block already holds a fact, none of this is undoable: there is
+no delete for a fact or a block, so you cannot empty one side to make room for
+the other. Leave the managed block answering and have the custom block defer to
+it by name in its own fact — the same pointer remedy as a merge (see Scale).
 
 A gap in the checklist is a finding, not a failure. A two-person company with no
 sales process has nothing to write in that row, and an honest empty row beats a
@@ -65,8 +79,9 @@ block of plausible filler. Gaps become tasks (see Provenance and honesty).
 
 ## Custom is the normal path
 
-Managed stacks are a starting map. They are deliberately generic, and a real
-business is not. Create a custom stack or block whenever:
+Managed stacks are a starting map — the generic seven, plus an industry stack if
+one fits. Even with both, a real business has edges the map doesn't reach.
+Create a custom stack or block whenever:
 
 - a managed block's title nearly fits, but you would have to bend the content
   to land it there;
@@ -76,7 +91,9 @@ business is not. Create a custom stack or block whenever:
   would make it harder to find rather than easier.
 
 **Kettlewell Veterinary Group** — an invented example used throughout this file
-— covers the seven areas above, then adds what the map doesn't carry: a custom
+— covers the seven areas above and checks the managed map for an industry stack
+first (there is a `Dentist` and a `Doctor`, but nothing veterinary), then adds
+what the map doesn't carry: a custom
 `Clinical Services` stack with one block per service line (preventive care,
 dentistry, orthopaedic surgery, diagnostic imaging), a custom `Practices` stack
 with one block per site, and a custom `Referral Network` stack for the partner
@@ -203,9 +220,10 @@ afterwards — there is no update route for either.
 
 **Know what a description can and cannot do.** No read endpoint returns one:
 `GET /stacks` gives `{id, slug, title, managed, blocks}` and `GET /blocks` gives
-`{id, slug, title, managed, stack}`. A description is echoed back once, on the
-create response, and is otherwise for the humans curating the workspace in the
-app. An agent grounding over the API routes on **titles** and on the **content
+`{id, slug, title, managed, stack}`. The only place one comes back at all is a
+create response, and not dependably even there — so treat a description as
+write-and-forget from the API's side, and as something the humans curating the
+workspace read in the app. An agent grounding over the API routes on **titles** and on the **content
 of the facts themselves** — so anything a later reader must know has to be in
 the fact, not in the description around it.
 
@@ -305,7 +323,7 @@ An area the checklist doesn't name — a channel, a partner programme, a
 franchise model — gets the same treatment: when you create it, decide what it
 owns and what it defers to, and put that in the owning block's own fact, where a
 later agent can actually read it. Not in the stack or block description: those
-are set on create and no read endpoint returns them (see Descriptions below).
+are set on create and no read endpoint returns them (see Descriptions above).
 
 These apply to custom stacks too, and matter more there: a custom
 `Enterprise Sales` stack must defer to `Sales` on process and to `Pricing` on
