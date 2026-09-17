@@ -12,7 +12,18 @@ The NOAN API itself is plain REST with a bearer key. Full spec: https://api.getn
 
 ## Install
 
-**Any agent (universal installer):**
+**One command, everything (recommended):** the NOAN wizard takes your API key, points your
+coding assistants at the NOAN MCP server, installs these skills, and checks whether your fact
+layer has anything in it yet.
+
+```bash
+npx -y @getnoan/wizard@latest
+```
+
+A coding assistant can run it too, without prompts: `NOAN_API_KEY=… npx -y @getnoan/wizard@latest --yes --json`.
+Source and options: [getnoan/wizard](https://github.com/getnoan/wizard).
+
+**Just the skills, any agent:**
 
 ```bash
 npx skills add getnoan/skills

@@ -43,7 +43,21 @@ Authorization: Bearer $NOAN_API_KEY
 
 Read the key from the `NOAN_API_KEY` environment variable (some setups name it
 `NOAN_PERSONAL_API_KEY` — use whichever is set). Keys are created in the NOAN
-workspace at https://app.getnoan.com; every plan includes unlimited keys. Never
+workspace at https://app.getnoan.com; every plan includes unlimited keys.
+
+**No key in the environment, and nothing set up yet?** Do not improvise the
+setup from this document. Run the NOAN wizard, which does the deterministic
+part correctly and hands the rest back to you:
+
+```bash
+npx -y @getnoan/wizard@latest --yes --json
+```
+
+With `NOAN_API_KEY` set it needs no prompt; without it, drop `--yes` and let the
+user paste their key when asked (it is never echoed). It writes the key to
+`.env`, wires this assistant to the NOAN MCP server, installs this skill, and
+reports as one JSON object whose `next` list says whether the workspace is
+empty — in which case follow `references/first-connect.md`, as below. Never
 ask the user to paste the key into chat; never print, log, or echo it. The key's
 scope (read vs. read+write) is the real boundary — a `403` on a write means it's
 a read-only key; stop, don't work around it.
