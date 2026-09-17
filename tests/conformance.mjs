@@ -25,6 +25,10 @@ const SKILL_DIR = join(ROOT, "skills", "noan-fact-layer");
 const BASE = process.env.NOAN_API_BASE ?? "https://api.getnoan.com/v1";
 const SPEC_URL = process.env.NOAN_OPENAPI_URL ?? "https://api.getnoan.com/openapi.json";
 const KEY = process.env.NOAN_API_KEY ?? process.env.NOAN_PERSONAL_API_KEY ?? "";
+// Set by CI on every event that is meant to reach the API. Without it, a
+// rotated or revoked secret would leave the weekly backstop reporting success
+// while checking nothing live.
+const REQUIRE_LIVE = process.env.REQUIRE_LIVE === "true";
 
 const FILES = {
   skill: join(SKILL_DIR, "SKILL.md"),
@@ -76,6 +80,13 @@ async function check(name, anchors, fn) {
 const assert = (cond, msg) => {
   if (!cond) throw new Error(msg);
 };
+// Distinguishes "the key points at a workspace with nothing in it" from "the
+// skill is wrong", which are the same red build otherwise.
+const assertPopulated = (item, what) =>
+  assert(
+    item,
+    `GET ${what} returned no items: this key's workspace is empty or re-scoped, so the shape checks could not run. That is a configuration problem, not a documentation one.`,
+  );
 const sameSet = (got, want) => {
   const g = [...new Set(got)].sort();
   const w = [...want].sort();
@@ -246,14 +257,70 @@ async function specChecks() {
       const seen = [];
       for (const [schema, field, want] of pairs) {
         const got = max(schema, field);
-        if (got === undefined) continue; // spec omits several limits; live writes prove those
+        // A missing maxLength is a finding, not a skip: the skill states these
+        // as hard numbers an unattended agent sizes its writes against.
+        assert(
+          got !== undefined,
+          `${schema}.${field} no longer declares maxLength, so the skill's "${want}" is now unverifiable — check it against a live write before trusting it`,
+        );
         assert(
           got === want,
           `${schema}.${field} maxLength is ${got}, the skill says ${want}`,
         );
         seen.push(`${field}=${got}`);
       }
-      return seen.length ? seen.join(", ") : "spec documents no maxLength; nothing to compare";
+      return seen.join(", ");
+    },
+  );
+
+  await check(
+    "first connect can still filter the template catalogue out",
+    [
+      ["first", "Keep `in_use_only` on both"],
+      ["first", "a bare `GET /blocks` also returns NOAN's managed"],
+    ],
+    () => {
+      const names = (path) =>
+        (spec.paths[path].get.parameters ?? [])
+          .map((x) => x.name)
+          .filter(Boolean);
+      for (const path of ["/blocks", "/stacks"]) {
+        assert(
+          names(path).includes("in_use_only"),
+          `${path} no longer takes in_use_only — step 0 of first-connect.md would pull the whole managed catalogue and make an empty workspace look populated`,
+        );
+      }
+      return "in_use_only present on /blocks and /stacks";
+    },
+  );
+
+  await check(
+    "GET /tasks still cannot filter on externalId",
+    [["first", "`GET /tasks?externalId=…` is silently ignored and returns the **entire"]],
+    () => {
+      const names = (spec.paths["/tasks"].get.parameters ?? [])
+        .map((x) => x.name)
+        .filter(Boolean);
+      assert(
+        !names.includes("externalId"),
+        "GET /tasks now documents an externalId filter — first-connect.md tells agents to page the whole board and dedupe client-side, which is now wrong and wasteful",
+      );
+      return `filters: ${names.join(", ")}`;
+    },
+  );
+
+  await check(
+    "block titles are still 3–512 characters",
+    [["first", "titles are\n3–512 characters"]],
+    () => {
+      const t =
+        spec.components.schemas.CreateStackRequest.properties.blocks.items
+          .properties.title;
+      assert(
+        t.minLength === 3 && t.maxLength === 512,
+        `nested block title is now ${t.minLength}–${t.maxLength}, the skill says 3–512`,
+      );
+      return "3–512";
     },
   );
 
@@ -261,27 +328,74 @@ async function specChecks() {
     "the API surface has not grown a route the skill does not mention",
     [["skill", "Base URL `https://api.getnoan.com/v1`"]],
     () => {
+      // Operations, not paths: a new mutating method on an existing path is
+      // exactly what would falsify "facts are append-only, nothing is edited or
+      // deleted", and a path-level set cannot see it.
       const known = new Set([
-        "/me", "/stacks", "/stacks/{stackId}/blocks", "/blocks", "/facts",
-        "/facts/{factId}/versions", "/contacts", "/contacts/{contactId}",
-        "/contacts/{contactId}/memos", "/contacts/{contactId}/notes", "/notes",
-        "/tags", "/tags/{tagId}", "/tasks", "/tasks/{taskId}",
-        "/tasks/{taskId}/assignees", "/tasks/{taskId}/contacts", "/tasks/{taskId}/tags",
-        "/assets", "/assets/{assetId}/versions",
+        "GET /me",
+        "GET /stacks", "POST /stacks", "POST /stacks/{stackId}/blocks",
+        "GET /blocks",
+        "GET /facts", "POST /facts", "GET /facts/{factId}/versions",
+        "GET /contacts", "POST /contacts",
+        "GET /contacts/{contactId}", "PATCH /contacts/{contactId}",
+        "POST /contacts/{contactId}/memos", "POST /contacts/{contactId}/notes",
+        "GET /notes", "POST /notes",
+        "GET /tags", "POST /tags", "PATCH /tags/{tagId}",
+        "GET /tasks", "POST /tasks", "PATCH /tasks/{taskId}",
+        "PUT /tasks/{taskId}/assignees", "PUT /tasks/{taskId}/contacts",
+        "PUT /tasks/{taskId}/tags",
+        "GET /assets", "POST /assets", "POST /assets/{assetId}/versions",
       ]);
-      const added = Object.keys(spec.paths).filter((p) => !known.has(p));
-      const gone = [...known].filter((p) => !spec.paths[p]);
+      const live = new Set(
+        Object.keys(spec.paths).flatMap((p) =>
+          methodsOf(p).map((m) => `${m.toUpperCase()} ${p}`),
+        ),
+      );
+      const added = [...live].filter((op) => !known.has(op));
+      const gone = [...known].filter((op) => !live.has(op));
       assert(
         !added.length && !gone.length,
         [
-          added.length ? `new paths: ${added.join(", ")}` : "",
-          gone.length ? `paths removed: ${gone.join(", ")}` : "",
-          "the skill documents the surface endpoint by endpoint — reconcile it, then update this list",
+          added.length ? `new operations: ${added.join(", ")}` : "",
+          gone.length ? `operations removed: ${gone.join(", ")}` : "",
+          "the skill documents this surface operation by operation — reconcile it, then update this list",
         ]
           .filter(Boolean)
           .join(" | "),
       );
-      return `${Object.keys(spec.paths).length} paths, unchanged`;
+      return `${live.size} operations across ${Object.keys(spec.paths).length} paths, unchanged`;
+    },
+  );
+}
+
+// The one claim in this repository that is about this repository: SKILL.md tells
+// the reader how often these checks run. Review caught it saying "nightly" while
+// the cron said Mondays, in a PR arguing that unverifiable claims rot — so the
+// claim now has a check like any other.
+async function cadenceCheck() {
+  await check(
+    "the cadence SKILL.md claims matches the cron that runs",
+    [["skill", "against the live spec and a read-only call"]],
+    () => {
+      const wf = readFileSync(
+        join(ROOT, ".github", "workflows", "conformance.yml"),
+        "utf8",
+      );
+      const cron = wf.match(/cron:\s*"([^"]+)"/)?.[1];
+      assert(cron, "no cron found in .github/workflows/conformance.yml");
+      const dow = cron.trim().split(/\s+/)[4];
+      const actual = dow === "*" ? "daily" : "weekly";
+      const claimed = /read-only call (weekly|daily|nightly)/.exec(flat.skill)?.[1];
+      assert(
+        claimed,
+        'SKILL.md no longer states a cadence after "read-only call" — either restate it or drop this check',
+      );
+      const claimedNorm = claimed === "nightly" ? "daily" : claimed;
+      assert(
+        claimedNorm === actual,
+        `SKILL.md says the checks run ${claimed}, the cron "${cron}" runs ${actual}`,
+      );
+      return `${claimed}, matching cron "${cron}"`;
     },
   );
 }
@@ -298,12 +412,24 @@ async function api(path) {
 
 // Slugs the skill names in its tables, pulled from the tables themselves so the
 // check follows an edit instead of going stale beside one.
+const SLUG = /^[a-z][A-Za-z0-9]*(-[A-Za-z0-9]+)+$/;
+
 function slugsNamedInDoc() {
-  const rows = text.writing.split("\n").filter((l) => l.startsWith("|"));
   const slugs = new Set();
-  for (const row of rows) {
-    for (const [, token] of row.matchAll(/`([^`]+)`/g)) {
-      if (/^[a-z][A-Za-z0-9]*(-[A-Za-z0-9]+)+$/.test(token)) slugs.add(token);
+  // Table rows: only the "managed blocks" column, so a hyphenated word in prose
+  // inside some other cell can never be mistaken for a slug.
+  for (const row of text.writing.split("\n").filter((l) => l.startsWith("|"))) {
+    const cell = row.split("|")[3] ?? "";
+    for (const [, token] of cell.matchAll(/`([^`]+)`/g)) {
+      if (SLUG.test(token)) slugs.add(token);
+    }
+  }
+  // The industry-stack paragraph names slugs in prose — review found those were
+  // the only cited slugs nothing verified.
+  const prose = text.writing.match(/it carries\s+industry ones[\s\S]*?\n\n/);
+  if (prose) {
+    for (const [, token] of prose[0].matchAll(/`([^`]+)`/g)) {
+      if (SLUG.test(token)) slugs.add(token);
     }
   }
   // The Naming section names a managed slug as its example of a short, clean
@@ -337,7 +463,7 @@ async function liveChecks() {
     async () => {
       const body = await api("/blocks?per_page=1");
       const item = body.items?.[0];
-      assert(item, "GET /blocks returned no items");
+      assertPopulated(item, "/blocks");
       assert(
         sameSet(Object.keys(item), ["id", "slug", "title", "managed", "stack"]),
         `GET /blocks item keys are now {${Object.keys(item).sort().join(", ")}}`,
@@ -352,7 +478,7 @@ async function liveChecks() {
     async () => {
       const body = await api("/stacks?per_page=1");
       const item = body.items?.[0];
-      assert(item, "GET /stacks returned no items");
+      assertPopulated(item, "/stacks");
       assert(
         sameSet(Object.keys(item), ["id", "slug", "title", "managed", "blocks"]),
         `GET /stacks item keys are now {${Object.keys(item).sort().join(", ")}}`,
@@ -374,7 +500,7 @@ async function liveChecks() {
     async () => {
       const body = await api("/facts?per_page=1");
       const item = body.items?.[0];
-      assert(item, "GET /facts returned no items");
+      assertPopulated(item, "/facts");
       for (const f of ["id", "blockSlug", "content", "createdAt"]) {
         assert(f in item, `GET /facts items no longer carry ${f}`);
       }
@@ -427,7 +553,7 @@ async function liveChecks() {
     async () => {
       const body = await api("/contacts?per_page=1");
       const item = body.items?.[0];
-      assert(item, "GET /contacts returned no items");
+      assertPopulated(item, "/contacts");
       for (const f of ["memos", "companyRoles", "tasks"]) {
         assert(!(f in item), `GET /contacts summary now carries ${f} — the two-shapes warning is out of date`);
       }
@@ -440,9 +566,16 @@ async function liveChecks() {
 
 await loadSpec();
 await specChecks();
+await cadenceCheck();
 
 if (KEY) {
   await liveChecks();
+} else if (REQUIRE_LIVE) {
+  record(
+    "live checks ran",
+    false,
+    "REQUIRE_LIVE is set but no key reached the job. On a push or a scheduled run that is a broken secret,\n     not a reason to pass: the live half of this suite checked nothing. Re-add NOAN_API_KEY (read-only).",
+  );
 } else {
   console.log("NOAN_API_KEY not set — spec checks only, live checks skipped.\n");
 }

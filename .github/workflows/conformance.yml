@@ -3,24 +3,34 @@ name: conformance
 # The skill is documentation that makes checkable claims about a live API.
 # This job is what stops those claims rotting quietly between releases.
 #
-# Pull requests run the spec checks only: NOAN_API_KEY is not exposed to forks,
-# and this repository is public. Pushes to main and the weekly run add the
-# read-only live checks — eight GETs, Mondays. The cheap, timely signal is meant
-# to come from the push side (a spec change in getnoan/noan), not from polling
-# here; this schedule is the backstop for changes that never touch the spec,
-# such as a managed block being renamed.
+# The key is withheld from pull_request runs. This repository is public, a PR
+# edits the very script that would run with the key, and GitHub does expose
+# secrets to same-repo branch PRs — only forks are covered by the usual warning.
+# So PRs check the spec, and push/schedule check the API.
+#
+# Note the expression below is `!= 'pull_request' && secret || ''`, not
+# `== 'pull_request' && '' || secret`: an empty string is falsy in GitHub
+# expressions, so the latter falls through and hands the secret to PR runs —
+# the thing it looks like it prevents.
 
 on:
   pull_request:
   push:
     branches: [main]
   schedule:
+    # Weekly, not nightly. The timely signal is meant to come from the push side
+    # (a spec change in getnoan/noan), not from polling here; this is the
+    # backstop for drift that never touches the spec, such as a managed block
+    # renamed in the product. Eight GETs, Mondays.
+    #
+    # GitHub disables scheduled workflows after 60 days without repository
+    # activity, which on a quiet docs repo is a second way a backstop dies
+    # quietly — re-enable it, or dispatch this manually, after a long lull.
     - cron: "17 6 * * 1"
   workflow_dispatch:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   conformance:
@@ -31,26 +41,36 @@ jobs:
         with:
           node-version: "22"
       - name: Check the skill against the spec and the live API
+        id: checks
         env:
-          NOAN_API_KEY: ${{ secrets.NOAN_API_KEY }}
+          NOAN_API_KEY: ${{ github.event_name != 'pull_request' && secrets.NOAN_API_KEY || '' }}
+          REQUIRE_LIVE: ${{ github.event_name != 'pull_request' }}
         run: node tests/conformance.mjs
 
-      # A failure nobody sees is the same problem as a doc nobody
-      # rechecks, so the schedule files an issue rather than reddening a log.
-      - name: File an issue on a scheduled failure
-        if: failure() && github.event_name == 'schedule'
+  # Separate job so `issues: write` is granted only where an issue can be filed,
+  # and gated on the checks step itself rather than on job failure — otherwise a
+  # checkout or setup-node blip files "the skill and the live API disagree".
+  report:
+    needs: conformance
+    if: always() && github.event_name == 'schedule' && needs.conformance.result == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: File or update the drift issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           title="Conformance: the skill and the live API disagree"
-          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number')
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[0].number')
           if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body "Still failing as of $(date -u +%Y-%m-%d). Run: $RUN_URL"
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Still failing as of $(date -u +%Y-%m-%d). Run: $RUN_URL"
           else
             body=$(printf '%s\n\n%s\n\n%s' \
               "The weekly conformance run failed, which means the skill states something the API no longer does." \
               "Run: $RUN_URL" \
               "Read the failing check name — each one names the claim and the file that makes it. Fix the documentation rather than the check, unless the claim was merely reworded, in which case update its anchor.")
-            gh issue create --title "$title" --label documentation --body "$body"
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label documentation --body "$body"
           fi

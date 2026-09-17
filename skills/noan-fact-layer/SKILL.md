@@ -34,8 +34,9 @@ gap with a guess. But an empty `GET /facts?block_slug=…` usually means a wrong
 slug, not a missing fact; confirm the block exists before reporting absence.
 
 **When this file and the API disagree, the API wins.** These notes are checked
-against the live spec and a read-only call nightly (`tests/conformance.mjs`),
-but a copy installed as a single file can be months old and nothing updates it.
+against the live spec and a read-only call weekly
+(https://github.com/getnoan/skills/blob/main/tests/conformance.mjs), but a copy
+installed as a single file can be months old and nothing updates it.
 If a response contradicts something here — a field that now exists, a limit that
 has moved, an endpoint that answers differently — trust the response, carry on,
 and tell the user which part of the skill is stale.
