@@ -550,6 +550,47 @@ async function liveChecks() {
   );
 
   await check(
+    "task comments still come back on GET /tasks, in the documented shape",
+    [
+      ["skill", "Comments come back on each task"],
+      ["skill", "`{id, content, createdAt, creator}`"],
+    ],
+    async () => {
+      // The read payload was narrowed when the write route shipped, so this is
+      // the claim most likely to be falsified by the next narrowing.
+      let sample = null;
+      let scanned = 0;
+      for (let page = 1; page <= 3 && !sample; page++) {
+        const body = await api(`/tasks?page=${page}&per_page=100`);
+        const items = body.items ?? [];
+        assertPopulated(items[0], "/tasks");
+        for (const t of items) {
+          scanned++;
+          assert(
+            Array.isArray(t.comments),
+            `a task came back without a comments array (id ${t.id}) — the skill says every task from GET /tasks carries one`,
+          );
+          if (!sample && t.comments.length) sample = t.comments[0];
+        }
+        if (!body.meta?.hasNext) break;
+      }
+      assert(
+        sample,
+        `no comment found on ${scanned} tasks, so the documented shape could not be inspected. That is a configuration problem — point the key at a workspace whose board has comments — not a documentation one.`,
+      );
+      assert(
+        sameSet(Object.keys(sample), ["id", "content", "createdAt", "creator"]),
+        `a comment's keys are now {${Object.keys(sample).sort().join(", ")}}, the skill says {id, content, createdAt, creator}`,
+      );
+      assert(
+        typeof sample.content === "string",
+        `comment content is ${typeof sample.content}, the skill says a plain string`,
+      );
+      return `${scanned} tasks carry the array; sampled comment matches`;
+    },
+  );
+
+  await check(
     "contact list and single-contact shapes still differ as documented",
     [["skill", "The `memos`, `notes`, `companyRoles` and `tasks` fields exist **only** on"]],
     async () => {
