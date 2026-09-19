@@ -104,12 +104,18 @@ After auth succeeds, check `GET /facts?per_page=1` and read `meta.totalItems`.
   `res.task?.id ?? res.id`. Assuming the bare object yields a silent `undefined`
   id that only surfaces on the next call.
 - **Length limits reject the request, they don't truncate.** Task `title` 256 ·
-  task `details` 2048 · note `content` 25,000 · tag `usageInstructions` 500 (that
-  last one isn't in the spec). Over the limit is `400 InvalidArguments` and
+  task `details` 2048 · task comment `content` 25,000 · note `content` 25,000 ·
+  tag `usageInstructions` 500 (that last one isn't in the spec). Over the limit is `400 InvalidArguments` and
   nothing is written, so measure before posting — an unattended job that hits
   this loses the whole write, not just the excess text.
 - `PUT /tasks/{id}/{tags,assignees,contacts}` **replace** the set, not append.
 - Task status moves via `PATCH /tasks/{id}` with `{status}` (`backlog`→`in-progress`→`done`); set `completed:true` alongside `status:"done"` to keep the flag and board consistent.
+- **Progress on a task is a comment, not an edit to `details`.** `POST /tasks/{taskId}/comments`
+  appends `{content}` (a plain string, up to 25,000) tied to the task; it never replaces or
+  trims what anyone else wrote, and it is attributed to the owner of the key that posted it.
+  `details` is the brief; a comment is what happened since. Comments come back on each task
+  from `GET /tasks` as `{id, content, createdAt, creator}`; there is no route to edit or
+  delete one.
 
 ## Reads — safe, no permission needed
 
@@ -262,6 +268,7 @@ preserved the block or destroyed it. Posting only the new entry wipes the rest.
 | Set task tags | `PUT /tasks/{taskId}/tags` | `tagIds[]` |
 | Set task assignees | `PUT /tasks/{taskId}/assignees` | `assigneeIds[]` |
 | Set task contacts | `PUT /tasks/{taskId}/contacts` | `contactIds[]` |
+| Comment on a task | `POST /tasks/{taskId}/comments` | `content` (a string, max 25,000) — appended, never replacing; a bad task id is a `404`, the cheapest task-existence check this API has |
 
 ```bash
 curl -s -X POST https://api.getnoan.com/v1/facts \

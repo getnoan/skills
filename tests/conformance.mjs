@@ -246,12 +246,13 @@ async function specChecks() {
 
   await check(
     "documented length limits still match the spec",
-    [["skill", "task `details` 2048 · note `content` 25,000"]],
+    [["skill", "task `details` 2048 · task comment `content` 25,000 · note `content` 25,000"]],
     () => {
       const max = (schema, field) =>
         spec.components.schemas[schema]?.properties?.[field]?.maxLength;
       const pairs = [
         ["CreateTaskRequest", "details", 2048],
+        ["CreateTaskCommentRequest", "content", 25000],
         ["CreateNoteRequest", "content", 25000],
       ];
       const seen = [];
@@ -344,6 +345,7 @@ async function specChecks() {
         "GET /tasks", "POST /tasks", "PATCH /tasks/{taskId}",
         "PUT /tasks/{taskId}/assignees", "PUT /tasks/{taskId}/contacts",
         "PUT /tasks/{taskId}/tags",
+        "POST /tasks/{taskId}/comments",   // shipped 2026-09-18; the skill's Writes table and conventions cover it
         "GET /assets", "POST /assets", "POST /assets/{assetId}/versions",
       ]);
       const live = new Set(

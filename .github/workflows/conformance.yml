@@ -35,6 +35,10 @@ permissions:
 jobs:
   conformance:
     runs-on: ubuntu-latest
+    # The checks step's own outcome, so the report job below can tell "the skill and the
+    # live API disagree" from "checkout or setup-node blipped".
+    outputs:
+      checks: ${{ steps.checks.outcome }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,7 +56,7 @@ jobs:
   # checkout or setup-node blip files "the skill and the live API disagree".
   report:
     needs: conformance
-    if: always() && github.event_name == 'schedule' && needs.conformance.result == 'failure'
+    if: always() && github.event_name == 'schedule' && needs.conformance.outputs.checks == 'failure'
     runs-on: ubuntu-latest
     permissions:
       contents: read
