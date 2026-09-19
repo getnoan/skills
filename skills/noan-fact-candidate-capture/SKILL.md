@@ -48,6 +48,12 @@ costs a person the read, so a session that surfaces nothing durable should
 capture nothing. Do not narrate the decision, and do not ask permission for
 every near-miss — if it does not clearly qualify, let it go.
 
+**Capture only facts about the business this NOAN workspace belongs to.** If
+you are working in someone else's codebase — a client, a contractor
+engagement, an open-source project — their pricing, their positioning and
+their customer insights are not yours to file. The workspace the key points at
+is the test, not the conversation you happen to be in.
+
 **Ask first, rather than capturing, when** the context is about a named
 individual's performance or conduct, is legal or HR material, is embargoed or
 unannounced, or was shared in confidence. Never put a credential, key or
@@ -60,20 +66,40 @@ sees them before any fact changes. Tell the user in one line afterwards.
 
 ## Auth
 
-If a NOAN MCP server is connected, use its `create_note` and `create_task`
-tools and skip the curl entirely — the connection carries the credential and
-the conventions below are enforced server-side.
-
-Otherwise, the REST API with a key from your workspace
-([app.getnoan.com](https://app.getnoan.com) → API keys):
+Either a connected NOAN MCP server, or the REST API with a key from your
+workspace ([app.getnoan.com](https://app.getnoan.com) → API keys):
 
 ```bash
 export NOAN_API_KEY=...
 ```
 
-Never paste a key into a chat; set it in the environment the tools run in. If
-no key resolves, say so and stop — do not fall back to another key you happen
-to find, because every write is attributed to whoever owns it.
+Never paste a key into a chat; set it in the environment the tools run in.
+Don't fall back to another key you happen to find — every write is attributed
+to whoever owns it.
+
+**If neither resolves, stay quiet.** Say nothing and capture nothing unless
+the user explicitly asked for a capture, in which case tell them there is no
+NOAN connection. Noticing is a background habit; announcing that the habit
+could not run, in a session that had nothing to do with NOAN, is noise.
+
+### Through MCP, the conventions are yours to get right
+
+The MCP server does not enforce any of this for you, and two of its tools
+differ from the REST shapes below in ways that break a capture quietly:
+
+- **`create_task` has no `status`.** It takes `column`, by name, and the
+  parameter is optional. Pass `column: "Backlog"` explicitly — omit it and
+  the task can land in a column the weekly review never reads, which looks
+  exactly like a capture nobody found interesting.
+- **`create_note` has no `title`.** It takes `content` only, and the server
+  derives a title from it — rewriting rather than copying, and dropping a
+  bracketed prefix on the way (`[Fact Candidate] Starter plan moved` comes
+  back titled `Starter Plan Moved`). So **put `[Fact Candidate]` on the first
+  line of the content**: that is what the reviewer matches on, and the title
+  is not yours to set.
+
+Everything else — the title prefix on the task, the summary in `details`, the
+length caps — is identical on both paths.
 
 ## 1. The note — the rationale
 
@@ -87,9 +113,11 @@ curl -s -X POST https://api.getnoan.com/v1/notes \
 JSON
 ```
 
-Prefix the note title `[Fact Candidate]` too. A reviewing agent skips notes
-with that prefix when scanning notes for candidates, so the same finding is not
-counted twice — once from the note and once from the task.
+Prefix the note title `[Fact Candidate]` too — and, on the MCP path where the
+title is not yours to set, the first line of the content. A reviewing agent
+scans recent notes for candidates in their own right and skips the ones
+carrying that prefix, so the same finding is not counted twice, once from the
+note and once from the task.
 
 `content` caps at 25,000 characters and is **rejected, not truncated**, above
 it. Read the new id from either shape: `created?.note?.id || created?.id`.
@@ -109,7 +137,8 @@ Three things are load-bearing:
 
 - **The title starts with the literal `[Fact Candidate]`** — brackets included,
   nothing before it, not even a space. Matched anchored and case-insensitively.
-  `Fact candidate: …` does not match.
+  `Fact candidate: …` does not match. Titles cap at **256 characters**, so
+  keep the headline short and let `details` carry the rest.
 - **`status` is `"backlog"`.** The review queries that status; anything else is
   invisible to it.
 - **`details` is the only thing a reviewing agent reads.** It never opens the
