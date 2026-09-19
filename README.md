@@ -9,6 +9,7 @@ The NOAN API itself is plain REST with a bearer key. Full spec: https://api.getn
 | Skill | What it does |
 |---|---|
 | [`noan-fact-layer`](skills/noan-fact-layer/SKILL.md) | Read and write verified company facts, contacts, notes, and tasks through the NOAN API. Grounding-first: agents answer from facts, not guesses. On first connect to an empty workspace it runs a guided setup — seeding the fact layer from your website, repo, and docs, then handing it back for review ([references/](skills/noan-fact-layer/references)). |
+| [`noan-fact-candidate-capture`](skills/noan-fact-candidate-capture/SKILL.md) | Catch durable business truth at the moment it surfaces — a pricing change, a positioning shift, a customer insight — and queue it for review as a fact candidate. Writes a note and a backlog task; never writes a fact. Consumed by the fact-alignment agent in the [agent pack](https://github.com/getnoan/agent-pack). |
 
 ## Install
 
@@ -25,13 +26,22 @@ npx skills add getnoan/skills
 /plugin install noan@noan-skills
 ```
 
-or copy the skill in directly:
+or copy the skills in directly:
 
 ```bash
-git clone https://github.com/getnoan/skills /tmp/noan-skills && mkdir -p ~/.claude/skills && cp -r /tmp/noan-skills/skills/noan-fact-layer ~/.claude/skills/
+git clone https://github.com/getnoan/skills /tmp/noan-skills && mkdir -p ~/.claude/skills && cp -r /tmp/noan-skills/skills/* ~/.claude/skills/
 ```
 
-**OpenAI Codex:** copy `skills/noan-fact-layer/` into `~/.codex/skills/`.
+The plugin also installs one hook. Noticing that something worth recording just
+went past is not a thing you can ask for after the fact, so the plugin adds a
+short standing note — [`hooks/capture-instruction.md`](hooks/capture-instruction.md),
+three sentences — to the start of each session, telling the agent to watch for
+durable business facts and queue them. Read it before you install; it is the only thing
+here that speaks unprompted. If you would rather not have it, copy the skills in
+directly instead of installing the plugin, or disable the plugin with `/plugin`
+— the skills work on their own, they just wait to be asked.
+
+**OpenAI Codex:** copy the directories under `skills/` into `~/.codex/skills/`.
 
 **Everything else:** the skill is plain markdown. Fetch it from `https://getnoan.com/skill.md` (or the [raw file](https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/SKILL.md)) and put it wherever your agent reads instructions — an `AGENTS.md`, a system prompt, a rules folder.
 
