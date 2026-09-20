@@ -58,7 +58,8 @@ wizard does the deterministic part correctly and hands the rest back to you.
 Two cases, and which one you are in is decided by whether a key is set:
 
 - **A key is set, nothing else is.** Tell the user what the wizard writes —
-  the key into `.env`, and an MCP entry into this assistant's config (the
+  the key into `.env`, and an MCP entry into each coding assistant's config
+  it detects in the project, not only this one (the
   `--no-skill` flag below skips the skill files and the `CLAUDE.md` /
   `AGENTS.md` pointer, since this skill is already installed) — and once they
   agree, run `npx -y @getnoan/wizard@latest --yes --json --no-skill` and read
@@ -69,8 +70,9 @@ Two cases, and which one you are in is decided by whether a key is set:
   never be pasted into chat. Ask the user to run `npx -y @getnoan/wizard@latest`
   in their own terminal (it tells them where to create the key, takes it
   without echoing it, and does the same setup), then carry on once they say it
-  has finished. Never
-ask the user to paste the key into chat; never print, log, or echo it. The key's
+  has finished.
+
+Never ask the user to paste the key into chat; never print, log, or echo it. The key's
 scope (read vs. read+write) is the real boundary — a `403` on a write means it's
 a read-only key; stop, don't work around it.
 
