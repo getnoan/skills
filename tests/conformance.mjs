@@ -12,8 +12,9 @@
 //   node tests/conformance.mjs            spec checks only
 //   NOAN_API_KEY=... node tests/conformance.mjs   spec + live read-only checks
 //
-// Live checks are read-only and deliberately cheap: one request per check, eight
-// GETs for a full run. They never print fact content, contact details or any
+// Live checks are read-only and deliberately cheap: one request per check except
+// the task-comments one, which pages until it finds a real comment, so a full run
+// is 8-10 GETs. They never print fact content, contact details or any
 // other workspace data — only shapes, slugs and counts.
 
 import { readFileSync } from "node:fs";
@@ -67,14 +68,32 @@ function anchorsPresent(name, anchors) {
   return true;
 }
 
-async function check(name, anchors, fn) {
-  if (!anchorsPresent(name, anchors)) return;
-  try {
-    const detail = await fn();
-    record(name, true, detail);
-  } catch (err) {
-    record(name, false, err.message);
+// Registration, not execution. Anchors are validated for EVERY registered check,
+// including ones whose body cannot run — a pull request run is spec-only by
+// design, and that is exactly where SKILL.md gets edited, so a rewrite that
+// orphans a live check's anchor has to fail there rather than on main after
+// merge.
+const registry = [];
+function check(name, anchors, fn) {
+  registry.push({ name, anchors, fn, live: false });
+}
+function liveCheck(name, anchors, fn) {
+  registry.push({ name, anchors, fn, live: true });
+}
+
+async function runRegistry({ runLive }) {
+  // Pass one: every anchor, regardless of what can run.
+  const anchored = registry.filter((c) => anchorsPresent(c.name, c.anchors));
+  // Pass two: the bodies whose prerequisites are met.
+  for (const c of anchored) {
+    if (c.live && !runLive) continue;
+    try {
+      record(c.name, true, await c.fn());
+    } catch (err) {
+      record(c.name, false, err.message);
+    }
   }
+  return anchored.filter((c) => c.live && !runLive).length;
 }
 
 const assert = (cond, msg) => {
@@ -112,8 +131,8 @@ const methodsOf = (p) =>
     ["get", "post", "put", "patch", "delete"].includes(m),
   );
 
-async function specChecks() {
-  await check(
+function specChecks() {
+  check(
     "no DELETE anywhere, and no PATCH/PUT on stacks, blocks or facts",
     [
       ["writing", "There is no move, and no delete."],
@@ -138,7 +157,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "descriptions are absent from every read schema",
     [
       ["writing", "No read endpoint returns one"],
@@ -163,7 +182,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "a block created via POST /stacks echoes its description",
     [["writing", "`POST /stacks` returns it on the stack and on each nested block"]],
     () => {
@@ -179,7 +198,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "managed stacks reject added blocks",
     [
       ["writing", "`POST /stacks/{stackId}/blocks` on a managed stack is refused"],
@@ -197,7 +216,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "no single-task read, but a single-contact read",
     [["skill", "There is no `GET /tasks/{taskId}`"]],
     () => {
@@ -213,7 +232,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "fact version history is readable",
     [["writing", "`GET /facts/{factId}/versions`"]],
     () => {
@@ -225,7 +244,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "creates still require what the write table says they require",
     [["skill", "`title`, `description`, `blocks[]` (each block needs `title` **and** `description`)"]],
     () => {
@@ -244,7 +263,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "documented length limits still match the spec",
     [["skill", "task `details` 2048 · task comment `content` 25,000 · note `content` 25,000"]],
     () => {
@@ -274,7 +293,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "first connect can still filter the template catalogue out",
     [
       ["first", "Keep `in_use_only` on both"],
@@ -295,7 +314,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "GET /tasks still cannot filter on externalId",
     [["first", "`GET /tasks?externalId=…` is silently ignored and returns the **entire"]],
     () => {
@@ -310,7 +329,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "block titles are still 3–512 characters",
     [["first", "titles are\n3–512 characters"]],
     () => {
@@ -325,7 +344,7 @@ async function specChecks() {
     },
   );
 
-  await check(
+  check(
     "the API surface has not grown a route the skill does not mention",
     [["skill", "Base URL `https://api.getnoan.com/v1`"]],
     () => {
@@ -374,8 +393,8 @@ async function specChecks() {
 // the reader how often these checks run. Review caught it saying "nightly" while
 // the cron said Mondays, in a PR arguing that unverifiable claims rot — so the
 // claim now has a check like any other.
-async function cadenceCheck() {
-  await check(
+function cadenceCheck() {
+  check(
     "the cadence SKILL.md claims matches the cron that runs",
     [["skill", "against the live spec and a read-only call"]],
     () => {
@@ -448,8 +467,8 @@ function industryStacksNamedInDoc() {
   return [...m[0].matchAll(/`([A-Z][A-Za-z-]*(?: [A-Z][A-Za-z-]*)?)`/g)].map((x) => x[1]);
 }
 
-async function liveChecks() {
-  await check(
+function liveChecks() {
+  liveCheck(
     "auth and project scope",
     [["skill", "Verify auth before real work"]],
     async () => {
@@ -459,7 +478,7 @@ async function liveChecks() {
     },
   );
 
-  await check(
+  liveCheck(
     "GET /blocks item shape",
     [["writing", "`GET /blocks` gives `{id, slug, title, managed, stack}`"]],
     async () => {
@@ -474,7 +493,7 @@ async function liveChecks() {
     },
   );
 
-  await check(
+  liveCheck(
     "GET /stacks item shape, including nested blocks",
     [["writing", "`GET /stacks` gives `{id, slug, title, managed, blocks}`"]],
     async () => {
@@ -496,7 +515,7 @@ async function liveChecks() {
     },
   );
 
-  await check(
+  liveCheck(
     "GET /facts item shape",
     [["skill", "Fact item shape: `{ id, blockSlug, content, createdAt }`"]],
     async () => {
@@ -510,7 +529,7 @@ async function liveChecks() {
     },
   );
 
-  await check(
+  liveCheck(
     "every managed slug the skill names still exists and is managed",
     [["writing", "Those slugs cover the seven generic stacks only"]],
     async () => {
@@ -533,7 +552,7 @@ async function liveChecks() {
     },
   );
 
-  await check(
+  liveCheck(
     "every industry stack the skill names still exists and is managed",
     [["writing", "Scan `GET /stacks` for one that matches the business"]],
     async () => {
@@ -549,7 +568,7 @@ async function liveChecks() {
     },
   );
 
-  await check(
+  liveCheck(
     "task comments still come back on GET /tasks, in the documented shape",
     [
       ["skill", "Comments come back on each task"],
@@ -563,7 +582,9 @@ async function liveChecks() {
       for (let page = 1; page <= 3 && !sample; page++) {
         const body = await api(`/tasks?page=${page}&per_page=100`);
         const items = body.items ?? [];
-        assertPopulated(items[0], "/tasks");
+        // Only page one says anything about the board being populated; a later
+        // page coming back empty is pagination, not a configuration fault.
+        if (page === 1) assertPopulated(items[0], "/tasks");
         for (const t of items) {
           scanned++;
           assert(
@@ -578,19 +599,30 @@ async function liveChecks() {
         sample,
         `no comment found on ${scanned} tasks, so the documented shape could not be inspected. That is a configuration problem — point the key at a workspace whose board has comments — not a documentation one.`,
       );
+      // Deliberately not an exact match. The skill's claim is what a comment
+      // carries, so a REMOVED key falsifies it and an added one does not —
+      // unlike the surface check, where append-only is the promise and a new
+      // operation is the finding. An addition is reported so the next reader can
+      // decide whether the skill should mention it.
+      const documented = ["id", "content", "createdAt", "creator"];
+      const keys = Object.keys(sample);
+      const missing = documented.filter((k) => !keys.includes(k));
       assert(
-        sameSet(Object.keys(sample), ["id", "content", "createdAt", "creator"]),
-        `a comment's keys are now {${Object.keys(sample).sort().join(", ")}}, the skill says {id, content, createdAt, creator}`,
+        !missing.length,
+        `a comment no longer carries ${missing.join(", ")} — the skill says {id, content, createdAt, creator}, and this payload has been narrowed before`,
       );
+      const extra = keys.filter((k) => !documented.includes(k));
       assert(
         typeof sample.content === "string",
         `comment content is ${typeof sample.content}, the skill says a plain string`,
       );
-      return `${scanned} tasks carry the array; sampled comment matches`;
+      return extra.length
+        ? `${scanned} tasks carry the array; sampled comment also returns ${extra.join(", ")}, which the skill does not mention`
+        : `${scanned} tasks carry the array; sampled comment matches`;
     },
   );
 
-  await check(
+  liveCheck(
     "contact list and single-contact shapes still differ as documented",
     [["skill", "The `memos`, `notes`, `companyRoles` and `tasks` fields exist **only** on"]],
     async () => {
@@ -608,19 +640,22 @@ async function liveChecks() {
 // ---------------------------------------------------------------------- main
 
 await loadSpec();
-await specChecks();
-await cadenceCheck();
+specChecks();
+cadenceCheck();
+liveChecks();
 
-if (KEY) {
-  await liveChecks();
-} else if (REQUIRE_LIVE) {
+const skippedLive = await runRegistry({ runLive: Boolean(KEY) });
+
+if (!KEY && REQUIRE_LIVE) {
   record(
     "live checks ran",
     false,
     "REQUIRE_LIVE is set but no key reached the job. On a push or a scheduled run that is a broken secret,\n     not a reason to pass: the live half of this suite checked nothing. Re-add NOAN_API_KEY (read-only).",
   );
-} else {
-  console.log("NOAN_API_KEY not set — spec checks only, live checks skipped.\n");
+} else if (!KEY) {
+  console.log(
+    `NOAN_API_KEY not set — spec checks only, ${skippedLive} live checks skipped (their anchors were still validated).\n`,
+  );
 }
 
 const failed = results.filter((r) => !r.ok);

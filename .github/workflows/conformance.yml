@@ -21,7 +21,7 @@ on:
     # Weekly, not nightly. The timely signal is meant to come from the push side
     # (a spec change in getnoan/noan), not from polling here; this is the
     # backstop for drift that never touches the spec, such as a managed block
-    # renamed in the product. Eight GETs, Mondays.
+    # renamed in the product. 8-10 GETs, Mondays.
     #
     # GitHub disables scheduled workflows after 60 days without repository
     # activity, which on a quiet docs repo is a second way a backstop dies
