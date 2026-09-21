@@ -97,6 +97,10 @@ differ from the REST shapes below in ways that break a capture quietly:
   back titled `Starter Plan Moved`). So **put `[Fact Candidate]` on the first
   line of the content**: that is what the reviewer matches on, and the title
   is not yours to set.
+- **Never set `private: true` on either.** Both tools offer it, and it means
+  only the creator can see the record. The review runs on a different key from
+  yours, so a private capture is a capture nobody can read — the one failure
+  this whole convention exists to avoid.
 
 Everything else — the title prefix on the task, the summary in `details`, the
 length caps — is identical on both paths.

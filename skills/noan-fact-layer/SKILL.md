@@ -251,6 +251,12 @@ the user and wait for explicit approval — these change shared state other
 people and agents read as truth. Headless, there is no one to ask: the key's
 scope carries the decision (see Unattended agents above).
 
+One documented exception: the `noan-fact-candidate-capture` skill writes a note
+and a backlog task without asking, and says why it is safe to — nothing it
+writes is read as truth by anything, and a human sees both before any fact
+changes. It reports what it captured afterwards. If you are following that
+skill, follow it; everything else on this page still asks first.
+
 Before writing to stacks, blocks, or facts, read `references/writing-facts.md`
 (or fetch
 <https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/writing-facts.md>
