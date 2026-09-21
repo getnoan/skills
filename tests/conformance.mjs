@@ -17,7 +17,7 @@
 // is 8-10 GETs. They never print fact content, contact details or any
 // other workspace data — only shapes, slugs and counts.
 
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -49,7 +49,14 @@ const flat = Object.fromEntries(
 
 let spec;
 const results = [];
-const record = (name, ok, detail) => results.push({ name, ok, detail });
+const record = (name, ok, detail, kind = "doc") =>
+  results.push({ name, ok, detail, kind });
+
+// A failure that says "this suite could not check" rather than "the skill is
+// wrong". The two exit differently, because the report job files a drift issue
+// for one and must not for the other: a bad key filed as documentation drift
+// sends someone to edit a file that was never wrong.
+class ConfigFault extends Error {}
 
 function anchorsPresent(name, anchors) {
   const missing = anchors.filter(
@@ -90,7 +97,7 @@ async function runRegistry({ runLive }) {
     try {
       record(c.name, true, await c.fn());
     } catch (err) {
-      record(c.name, false, err.message);
+      record(c.name, false, err.message, err instanceof ConfigFault ? "config" : "doc");
     }
   }
   return anchored.filter((c) => c.live && !runLive).length;
@@ -101,11 +108,16 @@ const assert = (cond, msg) => {
 };
 // Distinguishes "the key points at a workspace with nothing in it" from "the
 // skill is wrong", which are the same red build otherwise.
-const assertPopulated = (item, what) =>
-  assert(
-    item,
-    `GET ${what} returned no items: this key's workspace is empty or re-scoped, so the shape checks could not run. That is a configuration problem, not a documentation one.`,
-  );
+const assertPopulated = (item, what) => {
+  if (!item) {
+    throw new ConfigFault(
+      `GET ${what} returned no items: this key's workspace is empty or re-scoped, so the shape checks could not run. That is a configuration problem, not a documentation one.`,
+    );
+  }
+};
+const assertConfig = (cond, msg) => {
+  if (!cond) throw new ConfigFault(msg);
+};
 const sameSet = (got, want) => {
   const g = [...new Set(got)].sort();
   const w = [...want].sort();
@@ -595,7 +607,7 @@ function liveChecks() {
         }
         if (!body.meta?.hasNext) break;
       }
-      assert(
+      assertConfig(
         sample,
         `no comment found on ${scanned} tasks, so the documented shape could not be inspected. That is a configuration problem — point the key at a workspace whose board has comments — not a documentation one.`,
       );
@@ -651,6 +663,7 @@ if (!KEY && REQUIRE_LIVE) {
     "live checks ran",
     false,
     "REQUIRE_LIVE is set but no key reached the job. On a push or a scheduled run that is a broken secret,\n     not a reason to pass: the live half of this suite checked nothing. Re-add NOAN_API_KEY (read-only).",
+    "config",
   );
 } else if (!KEY) {
   console.log(
@@ -666,7 +679,23 @@ for (const r of results) {
 console.log(
   `\n${results.length - failed.length}/${results.length} checks passed${KEY ? "" : " (spec only)"}.`,
 );
-if (failed.length) {
+// Exit 1 is drift: the skill says something the API no longer does. Exit 2 is a
+// configuration fault: the suite could not check, because of the key's scope or
+// the workspace behind it. CI branches on this, so the two never get reported as
+// each other.
+const configOnly = failed.length > 0 && failed.every((r) => r.kind === "config");
+const outcome = !failed.length ? "pass" : configOnly ? "config" : "drift";
+if (process.env.GITHUB_OUTPUT) {
+  appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${outcome}\n`);
+}
+
+if (outcome === "config") {
+  console.log(
+    "\nNothing above says the documentation is wrong. The suite could not run its live half:\nthe key's scope, or the workspace behind it, cannot answer what these checks read.\nFix the key, not the skill.",
+  );
+  process.exit(2);
+}
+if (outcome === "drift") {
   console.log(
     "\nA failure here means the skill tells agents something the API no longer does.\nFix the documentation, not the check — unless the claim itself was restated, in which case update its anchor.",
   );
