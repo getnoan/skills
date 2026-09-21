@@ -127,6 +127,23 @@ const sameSet = (got, want) => {
 // ---------------------------------------------------------------- spec checks
 
 async function loadSpec() {
+  try {
+    await fetchSpec();
+  } catch (err) {
+    // Uncaught, this exited before the summary was written: no outcome, so
+    // neither report job fired and a red scheduled run told nobody. Silence is
+    // the one failure this suite must not have.
+    record(
+      "the published spec is reachable",
+      false,
+      `${err.message}. Nothing could be checked against it, so this says nothing about the documentation.`,
+      "config",
+    );
+    finish();
+  }
+}
+
+async function fetchSpec() {
   if (!/^https?:/.test(SPEC_URL)) {
     // A local path is allowed so the spec checks can run offline, and so this
     // suite's own failure modes can be exercised against a doctored copy.
@@ -436,10 +453,31 @@ function cadenceCheck() {
 // ---------------------------------------------------------------- live checks
 
 async function api(path) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { Authorization: `Bearer ${KEY}` },
-  });
-  assert(res.ok, `GET ${path} -> ${res.status}`);
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: { Authorization: `Bearer ${KEY}` },
+    });
+  } catch (err) {
+    throw new ConfigFault(
+      `GET ${path} could not be reached (${err.message}). That is the network or the API being down, not the documentation being wrong.`,
+    );
+  }
+  if (!res.ok) {
+    // 401/403 is the key, 429 is rate limiting, 5xx is an outage: none of them
+    // say anything about the skill. 404 and 400 do — a documented route that has
+    // gone, or a contract that changed, is what drift looks like.
+    if ([401, 403, 429].includes(res.status) || res.status >= 500) {
+      const why =
+        res.status === 401 || res.status === 403
+          ? "Check NOAN_API_KEY — revoked, rotated, or scoped away from this endpoint."
+          : res.status === 429
+            ? "Rate limited; retry later."
+            : "The API is returning errors; retry later.";
+      throw new ConfigFault(`GET ${path} -> ${res.status}: the key or the API, not the documentation. ${why}`);
+    }
+    throw new Error(`GET ${path} -> ${res.status}`);
+  }
   return res.json();
 }
 
@@ -555,7 +593,33 @@ function liveChecks() {
       const managed = new Map(
         (body.items ?? []).filter((b) => b.managed).map((b) => [b.slug, b]),
       );
-      const missing = named.filter((s) => !managed.has(s));
+      // Managed slug casing differs between workspaces — `product-faq` in one,
+      // `product-FAQ` in another, while `sales-ICP-triggers` keeps its capitals
+      // in both. The slug filter is case-sensitive, so the other spelling never
+      // comes back from the first query: anything missing gets a second lookup
+      // in lower case before it is called a rename.
+      let missing = named.filter((s) => !managed.has(s));
+      const cased = [];
+      if (missing.length) {
+        const retry = missing
+          .map((s) => s.toLowerCase())
+          .filter((s) => !managed.has(s));
+        if (retry.length) {
+          const alt = await api(
+            `/blocks?${retry.map((s) => `slug=${encodeURIComponent(s)}`).join("&")}&per_page=100`,
+          );
+          const found = new Set(
+            (alt.items ?? []).filter((b) => b.managed).map((b) => b.slug),
+          );
+          missing = missing.filter((s) => {
+            if (found.has(s.toLowerCase())) {
+              cased.push(`${s} is ${s.toLowerCase()} here`);
+              return false;
+            }
+            return true;
+          });
+        }
+      }
       // None of them visible is a key that cannot see the managed catalogue —
       // 45 simultaneous renames is not a thing that happens. Some missing is a
       // rename, which is what this check exists to catch. Getting this wrong
@@ -568,7 +632,9 @@ function liveChecks() {
         !missing.length,
         `named in writing-facts.md but not a managed block any more: ${missing.join(", ")}. If the key changed recently, check its scope before editing the tables — a partial view looks exactly like this.`,
       );
-      return `${named.length} slugs, all present and managed`;
+      return cased.length
+        ? `${named.length} slugs present; case differs in this workspace for ${cased.join(", ")}`
+        : `${named.length} slugs, all present and managed`;
     },
   );
 
@@ -686,6 +752,7 @@ if (!KEY && REQUIRE_LIVE) {
   );
 }
 
+function finish() {
 const failed = results.filter((r) => !r.ok);
 for (const r of results) {
   console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.name}`);
@@ -700,8 +767,12 @@ console.log(
 // each other.
 const configOnly = failed.length > 0 && failed.every((r) => r.kind === "config");
 const outcome = !failed.length ? "pass" : configOnly ? "config" : "drift";
+const blocked = failed.filter((r) => r.kind === "config").length;
 if (process.env.GITHUB_OUTPUT) {
   appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${outcome}\n`);
+  // How much of the run could not happen, so a drift report can say it checked
+  // less than it looks.
+  appendFileSync(process.env.GITHUB_OUTPUT, `blocked=${blocked}\n`);
 }
 
 if (outcome === "config") {
@@ -711,8 +782,17 @@ if (outcome === "config") {
   process.exit(2);
 }
 if (outcome === "drift") {
+  if (blocked) {
+    console.log(
+      `\nNote: ${blocked} of these could not run at all (key, network or API), so this run checked less than it looks.`,
+    );
+  }
   console.log(
     "\nA failure here means the skill tells agents something the API no longer does.\nFix the documentation, not the check — unless the claim itself was restated, in which case update its anchor.",
   );
   process.exit(1);
 }
+process.exit(0);
+}
+
+finish();
