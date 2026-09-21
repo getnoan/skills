@@ -556,9 +556,17 @@ function liveChecks() {
         (body.items ?? []).filter((b) => b.managed).map((b) => [b.slug, b]),
       );
       const missing = named.filter((s) => !managed.has(s));
+      // None of them visible is a key that cannot see the managed catalogue —
+      // 45 simultaneous renames is not a thing that happens. Some missing is a
+      // rename, which is what this check exists to catch. Getting this wrong
+      // sends someone to edit a file over a scope problem.
+      assertConfig(
+        !(missing.length === named.length && named.length > 1),
+        `none of the ${named.length} managed slugs the skill names came back. That is a key that cannot see the managed catalogue — a stack-limited key, or the wrong project — not ${named.length} renames at once. Fix the key, not the skill.`,
+      );
       assert(
         !missing.length,
-        `named in writing-facts.md but not a managed block any more: ${missing.join(", ")}`,
+        `named in writing-facts.md but not a managed block any more: ${missing.join(", ")}. If the key changed recently, check its scope before editing the tables — a partial view looks exactly like this.`,
       );
       return `${named.length} slugs, all present and managed`;
     },
@@ -575,7 +583,14 @@ function liveChecks() {
         (stacks.items ?? []).filter((s) => s.managed).map((s) => s.title),
       );
       const missing = named.filter((t) => !titles.has(t));
-      assert(!missing.length, `named as managed industry stacks but absent: ${missing.join(", ")}`);
+      assertConfig(
+        !(missing.length === named.length && named.length > 1),
+        `none of the ${named.length} industry stacks the skill names came back, which is a key that cannot see the managed catalogue rather than ${named.length} stacks disappearing. Fix the key, not the skill.`,
+      );
+      assert(
+        !missing.length,
+        `named as managed industry stacks but absent: ${missing.join(", ")}. If the key changed recently, check its scope first.`,
+      );
       return `${named.join(", ")} all present`;
     },
   );
