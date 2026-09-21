@@ -33,6 +33,14 @@ inventing an answer. Absence of a fact is information — report it, don't fill 
 gap with a guess. But an empty `GET /facts?block_slug=…` usually means a wrong
 slug, not a missing fact; confirm the block exists before reporting absence.
 
+**When this file and the API disagree, the API wins.** These notes are checked
+against the live spec and a read-only call weekly
+(https://github.com/getnoan/skills/blob/main/tests/conformance.mjs), but a copy
+installed as a single file can be months old and nothing updates it.
+If a response contradicts something here — a field that now exists, a limit that
+has moved, an endpoint that answers differently — trust the response, carry on,
+and tell the user which part of the skill is stale.
+
 ## Auth
 
 Base URL `https://api.getnoan.com/v1`. Every request sends:
@@ -50,7 +58,8 @@ wizard does the deterministic part correctly and hands the rest back to you.
 Two cases, and which one you are in is decided by whether a key is set:
 
 - **A key is set, nothing else is.** Tell the user what the wizard writes —
-  the key into `.env`, and an MCP entry into this assistant's config (the
+  the key into `.env`, and an MCP entry into each coding assistant's config
+  it detects in the project, not only this one (the
   `--no-skill` flag below skips the skill files and the `CLAUDE.md` /
   `AGENTS.md` pointer, since this skill is already installed) — and once they
   agree, run `npx -y @getnoan/wizard@latest --yes --json --no-skill` and read
@@ -61,8 +70,9 @@ Two cases, and which one you are in is decided by whether a key is set:
   never be pasted into chat. Ask the user to run `npx -y @getnoan/wizard@latest`
   in their own terminal (it tells them where to create the key, takes it
   without echoing it, and does the same setup), then carry on once they say it
-  has finished. Never
-ask the user to paste the key into chat; never print, log, or echo it. The key's
+  has finished.
+
+Never ask the user to paste the key into chat; never print, log, or echo it. The key's
 scope (read vs. read+write) is the real boundary — a `403` on a write means it's
 a read-only key; stop, don't work around it.
 
@@ -114,12 +124,18 @@ After auth succeeds, check `GET /facts?per_page=1` and read `meta.totalItems`.
   `res.task?.id ?? res.id`. Assuming the bare object yields a silent `undefined`
   id that only surfaces on the next call.
 - **Length limits reject the request, they don't truncate.** Task `title` 256 ·
-  task `details` 2048 · note `content` 25,000 · tag `usageInstructions` 500 (that
-  last one isn't in the spec). Over the limit is `400 InvalidArguments` and
+  task `details` 2048 · task comment `content` 25,000 · note `content` 25,000 ·
+  tag `usageInstructions` 500 (that last one isn't in the spec). Over the limit is `400 InvalidArguments` and
   nothing is written, so measure before posting — an unattended job that hits
   this loses the whole write, not just the excess text.
 - `PUT /tasks/{id}/{tags,assignees,contacts}` **replace** the set, not append.
 - Task status moves via `PATCH /tasks/{id}` with `{status}` (`backlog`→`in-progress`→`done`); set `completed:true` alongside `status:"done"` to keep the flag and board consistent.
+- **Progress on a task is a comment, not an edit to `details`.** `POST /tasks/{taskId}/comments`
+  appends `{content}` (a plain string, up to 25,000) tied to the task; it never replaces or
+  trims what anyone else wrote, and it is attributed to the owner of the key that posted it.
+  `details` is the brief; a comment is what happened since. Comments come back on each task
+  from `GET /tasks` as `{id, content, createdAt, creator}`; there is no route to edit or
+  delete one.
 
 ## Reads — safe, no permission needed
 
@@ -272,6 +288,7 @@ preserved the block or destroyed it. Posting only the new entry wipes the rest.
 | Set task tags | `PUT /tasks/{taskId}/tags` | `tagIds[]` |
 | Set task assignees | `PUT /tasks/{taskId}/assignees` | `assigneeIds[]` |
 | Set task contacts | `PUT /tasks/{taskId}/contacts` | `contactIds[]` |
+| Comment on a task | `POST /tasks/{taskId}/comments` | `content` (a string, max 25,000) — appended, never replacing; a bad task id is a `404`, the cheapest task-existence check this API has |
 
 ```bash
 curl -s -X POST https://api.getnoan.com/v1/facts \

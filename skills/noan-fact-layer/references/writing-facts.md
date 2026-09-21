@@ -273,8 +273,9 @@ that comes back — don't construct one and don't expect it to be tidy. A block
 you create lands on something like
 `c4e19a7b-clinical-services-5f2dd-orthopaedic-surgery`
 (`<stack-id-prefix>-<stack-title>-<random>-<block-title>`). Short, clean slugs
-like `customer-profile` belong to NOAN's managed template blocks and are not
-what your writes produce.
+like `ideal-customer` belong to NOAN's managed template blocks and are not what
+your writes produce. (`customer-profile`, the slug the OpenAPI examples use, is
+a placeholder — it matches no block in the live catalogue.)
 
 So the title is the whole lever: it's what the slug derives from and what
 `GET /blocks?title=` searches. Write it plain and hyphenatable.
