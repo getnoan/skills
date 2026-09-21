@@ -593,11 +593,15 @@ function liveChecks() {
       const managed = new Map(
         (body.items ?? []).filter((b) => b.managed).map((b) => [b.slug, b]),
       );
-      // Managed slug casing differs between workspaces — `product-faq` in one,
-      // `product-FAQ` in another, while `sales-ICP-triggers` keeps its capitals
-      // in both. The slug filter is case-sensitive, so the other spelling never
-      // comes back from the first query: anything missing gets a second lookup
-      // in lower case before it is called a rename.
+      // A managed slug can be renamed in the backend and reach workspaces at
+      // different times: `product-FAQ` became `product-faq` on 2026-09-21, and
+      // for a while one workspace answered to each. The slug filter is
+      // case-sensitive, so during that window the other spelling simply does not
+      // come back, which is indistinguishable from the block having gone. A
+      // missing slug therefore gets a second lookup in lower case before it is
+      // called a rename, and a case-only difference is reported rather than
+      // failed. This is cover for a rollout, not a promise that casing never
+      // matters — a rename that changes more than case still fails, loudly.
       let missing = named.filter((s) => !managed.has(s));
       const cased = [];
       if (missing.length) {
