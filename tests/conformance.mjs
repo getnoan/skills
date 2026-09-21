@@ -777,6 +777,12 @@ if (process.env.GITHUB_OUTPUT) {
   // How much of the run could not happen, so a drift report can say it checked
   // less than it looks.
   appendFileSync(process.env.GITHUB_OUTPUT, `blocked=${blocked}\n`);
+  // The failing check names, so the report path can name them without paying
+  // for a second run of the whole suite.
+  appendFileSync(
+    process.env.GITHUB_OUTPUT,
+    `failures<<CONF_EOF\n${failed.map((r) => r.name).join("\n")}\nCONF_EOF\n`,
+  );
 }
 
 if (outcome === "config") {
