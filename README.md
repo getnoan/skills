@@ -2,12 +2,12 @@
 
 Open [Agent Skills](https://agentskills.io) for building on [NOAN](https://getnoan.com) — the fact layer for agentic business. A skill is a single `SKILL.md` your agent reads to learn how to ground itself in your company's verified facts and work your NOAN task board. The format is an open standard supported by Claude Code, OpenAI Codex, GitHub Copilot, Cursor, Gemini CLI, and 20+ other agents — one file, any model.
 
-The NOAN API itself is plain REST with a bearer key. Full spec: https://api.getnoan.com/openapi.json
+The NOAN API itself is plain REST with a bearer key. Full spec: <https://api.getnoan.com/openapi.json>
 
 ## Skills
 
 | Skill | What it does |
-|---|---|
+| --- | --- |
 | [`noan-fact-layer`](skills/noan-fact-layer/SKILL.md) | Read and write verified company facts, contacts, notes, and tasks through the NOAN API. Grounding-first: agents answer from facts, not guesses. On first connect to an empty workspace it runs a guided setup — seeding the fact layer from your website, repo, and docs, then handing it back for review ([references/](skills/noan-fact-layer/references)). |
 
 ## Install
@@ -31,7 +31,7 @@ npx skills add getnoan/skills
 
 **Claude Code** — as a plugin:
 
-```
+```text
 /plugin marketplace add getnoan/skills
 /plugin install noan@noan-skills
 ```
