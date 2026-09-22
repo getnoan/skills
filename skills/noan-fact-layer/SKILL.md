@@ -35,7 +35,7 @@ slug, not a missing fact; confirm the block exists before reporting absence.
 
 **When this file and the API disagree, the API wins.** These notes are checked
 against the live spec and a read-only call weekly
-(https://github.com/getnoan/skills/blob/main/tests/conformance.mjs), but a copy
+(<https://github.com/getnoan/skills/blob/main/tests/conformance.mjs>), but a copy
 installed as a single file can be months old and nothing updates it.
 If a response contradicts something here — a field that now exists, a limit that
 has moved, an endpoint that answers differently — trust the response, carry on,
@@ -45,13 +45,13 @@ and tell the user which part of the skill is stale.
 
 Base URL `https://api.getnoan.com/v1`. Every request sends:
 
-```
+```text
 Authorization: Bearer $NOAN_API_KEY
 ```
 
 Read the key from the `NOAN_API_KEY` environment variable (some setups name it
 `NOAN_PERSONAL_API_KEY` — use whichever is set). Keys are created in the NOAN
-workspace at https://app.getnoan.com; every plan includes unlimited keys.
+workspace at <https://app.getnoan.com>; every plan includes unlimited keys.
 
 **Nothing set up yet?** Do not improvise the setup from this document. The NOAN
 wizard does the deterministic part correctly and hands the rest back to you.
@@ -100,7 +100,7 @@ After auth succeeds, check `GET /facts?per_page=1` and read `meta.totalItems`.
 - **Fewer than ~10 facts** → this is a new or empty workspace. Do not attempt
   to ground a task against an empty fact layer ("no facts found" is useless to
   a new user). Instead, read `references/first-connect.md` (or fetch
-  https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/first-connect.md
+  <https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/first-connect.md>
   if this skill was installed as a single file) and follow it: offer to seed
   the workspace from the company's own sources, then hand it back for review.
 - **Otherwise** → ground normally against `items[].content`.
@@ -139,20 +139,20 @@ After auth succeeds, check `GET /facts?per_page=1` and read `meta.totalItems`.
 
 ## Reads — safe, no permission needed
 
-| Goal | Call |
-|---|---|
-| Verify auth / project | `GET /me` |
-| List stacks | `GET /stacks` (params: `slug`, `title`, `custom_only`, `in_use_only`) |
-| List blocks | `GET /blocks` (params: `slug`, `title`, `custom_only`, `in_use_only`) |
-| Facts for a block | `GET /facts?block_slug=<slug>` |
-| All facts | `GET /facts` |
-| Fact edit history | `GET /facts/{factId}/versions` (paginated, newest lineage of one fact) |
-| Find contacts by name | `GET /contacts?q=<query>` — name/alias/website only, **never email** |
-| Get one contact | `GET /contacts/{contactId}` — the only source of memos, companyRoles and linked tasks |
-| List notes | `GET /notes` (free-standing project notes; a contact's memos live on `GET /contacts/{contactId}`) |
-| List tags | `GET /tags` |
-| List tasks | `GET /tasks` (params: `status`, `completed`; `status=null` → tasks with no board column) |
-| List assets | `GET /assets` (params: `tag_id`, `sort` = `createdAt`\|`updatedAt`, `order`) |
+| Goal                  | Call                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| Verify auth / project | `GET /me`                                                                                         |
+| List stacks           | `GET /stacks` (params: `slug`, `title`, `custom_only`, `in_use_only`)                             |
+| List blocks           | `GET /blocks` (params: `slug`, `title`, `custom_only`, `in_use_only`)                             |
+| Facts for a block     | `GET /facts?block_slug=<slug>`                                                                    |
+| All facts             | `GET /facts`                                                                                      |
+| Fact edit history     | `GET /facts/{factId}/versions` (paginated, newest lineage of one fact)                            |
+| Find contacts by name | `GET /contacts?q=<query>` — name/alias/website only, **never email**                              |
+| Get one contact       | `GET /contacts/{contactId}` — the only source of memos, companyRoles and linked tasks             |
+| List notes            | `GET /notes` (free-standing project notes; a contact's memos live on `GET /contacts/{contactId}`) |
+| List tags             | `GET /tags`                                                                                       |
+| List tasks            | `GET /tasks` (params: `status`, `completed`; `status=null` → tasks with no board column)          |
+| List assets           | `GET /assets` (params: `tag_id`, `sort` = `createdAt`\|`updatedAt`, `order`)                      |
 
 `in_use_only=true` limits stacks/blocks to those actually added to this
 project's knowledge base — what you want when grounding. Leave it **off** when
@@ -241,7 +241,7 @@ each other are worse than a gap.
 Long form — the seven areas in full, when to go custom, the fact template, and
 the seam table for boundaries that blur (Customer vs Sales, Brand vs Product,
 Goals vs Sales) — is in `references/writing-facts.md` (or
-https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/writing-facts.md
+<https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/writing-facts.md>
 if this skill was installed as a single file).
 
 ## Writes — confirm with the user first (interactive)
@@ -253,7 +253,7 @@ scope carries the decision (see Unattended agents above).
 
 Before writing to stacks, blocks, or facts, read `references/writing-facts.md`
 (or fetch
-https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/writing-facts.md
+<https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/writing-facts.md>
 if installed as a single file) — it covers granularity, descriptions (required
 on create, and returned by no read endpoint), slug hygiene, and the
 one-truth-one-home rule. These rules apply to every write, not just first
@@ -270,25 +270,25 @@ there. Don't verify by counting facts: `GET /facts?block_slug=…` returns the
 single latest fact per block by construction, so it reads `1` whether the splice
 preserved the block or destroyed it. Posting only the new entry wipes the rest.
 
-| Goal | Call | Required body |
-|---|---|---|
-| Add a fact | `POST /facts` | `blockSlug`, `content` — replaces the block's fact; see warning above |
-| Create stack | `POST /stacks` | `title`, `description`, `blocks[]` (each block needs `title` **and** `description`) |
-| Create block | `POST /stacks/{stackId}/blocks` | `title` (+ `description`) |
-| Create contact | `POST /contacts` | `name` (+ alias, email, phoneNumber, website, notes[], companyRoles[] as `{companyName, role?}`, tagIds[]) — omit unset keys, never send `null` |
-| Update contact | `PATCH /contacts/{contactId}` | any subset above; `notes`, `companyRoles`, `tagIds` are full replacements, not merges |
-| Log against a contact | `POST /contacts/{contactId}/memos` | `memos[]`, each `{content, title?}` — appends without touching existing memos |
-| Create note | `POST /notes` | `content` (+ title, externalId) |
-| Create tag | `POST /tags` | `name`, `usageInstructions` (+ category, color) |
-| Update tag | `PATCH /tags/{tagId}` | any subset of `name`, `usageInstructions`, `category`, `color` |
-| Create asset | `POST /assets` | `title`, `text` (+ description, createPrompt, tagIds[]) — creates the asset with its first version |
-| Add asset version | `POST /assets/{assetId}/versions` | `text` (+ title, description, createPrompt — omitted fields keep the asset's current values) — becomes the active version |
-| Create task | `POST /tasks` | `title` (+ details, dueDate `YYYY-MM-DD`, status, externalId) |
-| Update task | `PATCH /tasks/{taskId}` | any subset of `title`, `details`, `dueDate`, `completed`, `status` (`backlog`/`in-progress`/`done`) — partial, omitted fields untouched |
-| Set task tags | `PUT /tasks/{taskId}/tags` | `tagIds[]` |
-| Set task assignees | `PUT /tasks/{taskId}/assignees` | `assigneeIds[]` |
-| Set task contacts | `PUT /tasks/{taskId}/contacts` | `contactIds[]` |
-| Comment on a task | `POST /tasks/{taskId}/comments` | `content` (a string, max 25,000) — appended, never replacing; a bad task id is a `404`, the cheapest task-existence check this API has |
+| Goal                  | Call                               | Required body                                                                                                                                   |
+| --------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Add a fact            | `POST /facts`                      | `blockSlug`, `content` — replaces the block's fact; see warning above                                                                           |
+| Create stack          | `POST /stacks`                     | `title`, `description`, `blocks[]` (each block needs `title` **and** `description`)                                                             |
+| Create block          | `POST /stacks/{stackId}/blocks`    | `title` (+ `description`)                                                                                                                       |
+| Create contact        | `POST /contacts`                   | `name` (+ alias, email, phoneNumber, website, notes[], companyRoles[] as `{companyName, role?}`, tagIds[]) — omit unset keys, never send `null` |
+| Update contact        | `PATCH /contacts/{contactId}`      | any subset above; `notes`, `companyRoles`, `tagIds` are full replacements, not merges                                                           |
+| Log against a contact | `POST /contacts/{contactId}/memos` | `memos[]`, each `{content, title?}` — appends without touching existing memos                                                                   |
+| Create note           | `POST /notes`                      | `content` (+ title, externalId)                                                                                                                 |
+| Create tag            | `POST /tags`                       | `name`, `usageInstructions` (+ category, color)                                                                                                 |
+| Update tag            | `PATCH /tags/{tagId}`              | any subset of `name`, `usageInstructions`, `category`, `color`                                                                                  |
+| Create asset          | `POST /assets`                     | `title`, `text` (+ description, createPrompt, tagIds[]) — creates the asset with its first version                                              |
+| Add asset version     | `POST /assets/{assetId}/versions`  | `text` (+ title, description, createPrompt — omitted fields keep the asset's current values) — becomes the active version                       |
+| Create task           | `POST /tasks`                      | `title` (+ details, dueDate `YYYY-MM-DD`, status, externalId)                                                                                   |
+| Update task           | `PATCH /tasks/{taskId}`            | any subset of `title`, `details`, `dueDate`, `completed`, `status` (`backlog`/`in-progress`/`done`) — partial, omitted fields untouched         |
+| Set task tags         | `PUT /tasks/{taskId}/tags`         | `tagIds[]`                                                                                                                                      |
+| Set task assignees    | `PUT /tasks/{taskId}/assignees`    | `assigneeIds[]`                                                                                                                                 |
+| Set task contacts     | `PUT /tasks/{taskId}/contacts`     | `contactIds[]`                                                                                                                                  |
+| Comment on a task     | `POST /tasks/{taskId}/comments`    | `content` (a string, max 25,000) — appended, never replacing; a bad task id is a `404`, the cheapest task-existence check this API has          |
 
 ```bash
 curl -s -X POST https://api.getnoan.com/v1/facts \

@@ -43,13 +43,13 @@ what the internet says.
 
 If they have no sources at all, do not seed — switch to the interview path
 in `interview.md` (also at
-https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/interview.md).
+<https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/interview.md>).
 
 ## Step 2 — Extract claims with provenance
 
 Decompose the sources into individual claims. For each, hold:
 
-```
+```text
 { claim, value, source (url or file path), quote, confidence }
 ```
 
@@ -142,7 +142,7 @@ End with, in this order:
 2. **What needs their eyes** — the inferred claims and source-to-source
    conflicts, listed explicitly. Short list; these are where being wrong
    costs them.
-3. **The link** — https://app.getnoan.com, so the first thing they see is a
+3. **The link** — <https://app.getnoan.com>, so the first thing they see is a
    full fact layer.
 4. **The next action** — one concrete thing, not a menu. Usually: "verify
    the flagged facts, then tell me which agent to build first."
