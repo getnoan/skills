@@ -17,7 +17,7 @@
 // is 8-10 GETs. They never print fact content, contact details or any
 // other workspace data — only shapes, slugs and counts.
 
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -49,7 +49,14 @@ const flat = Object.fromEntries(
 
 let spec;
 const results = [];
-const record = (name, ok, detail) => results.push({ name, ok, detail });
+const record = (name, ok, detail, kind = "doc") =>
+  results.push({ name, ok, detail, kind });
+
+// A failure that says "this suite could not check" rather than "the skill is
+// wrong". The two exit differently, because the report job files a drift issue
+// for one and must not for the other: a bad key filed as documentation drift
+// sends someone to edit a file that was never wrong.
+class ConfigFault extends Error {}
 
 function anchorsPresent(name, anchors) {
   const missing = anchors.filter(
@@ -90,7 +97,7 @@ async function runRegistry({ runLive }) {
     try {
       record(c.name, true, await c.fn());
     } catch (err) {
-      record(c.name, false, err.message);
+      record(c.name, false, err.message, err instanceof ConfigFault ? "config" : "doc");
     }
   }
   return anchored.filter((c) => c.live && !runLive).length;
@@ -101,11 +108,16 @@ const assert = (cond, msg) => {
 };
 // Distinguishes "the key points at a workspace with nothing in it" from "the
 // skill is wrong", which are the same red build otherwise.
-const assertPopulated = (item, what) =>
-  assert(
-    item,
-    `GET ${what} returned no items: this key's workspace is empty or re-scoped, so the shape checks could not run. That is a configuration problem, not a documentation one.`,
-  );
+const assertPopulated = (item, what) => {
+  if (!item) {
+    throw new ConfigFault(
+      `GET ${what} returned no items: this key's workspace is empty or re-scoped, so the shape checks could not run. That is a configuration problem, not a documentation one.`,
+    );
+  }
+};
+const assertConfig = (cond, msg) => {
+  if (!cond) throw new ConfigFault(msg);
+};
 const sameSet = (got, want) => {
   const g = [...new Set(got)].sort();
   const w = [...want].sort();
@@ -115,6 +127,23 @@ const sameSet = (got, want) => {
 // ---------------------------------------------------------------- spec checks
 
 async function loadSpec() {
+  try {
+    await fetchSpec();
+  } catch (err) {
+    // Uncaught, this exited before the summary was written: no outcome, so
+    // neither report job fired and a red scheduled run told nobody. Silence is
+    // the one failure this suite must not have.
+    record(
+      "the published spec is reachable",
+      false,
+      `${err.message}. Nothing could be checked against it, so this says nothing about the documentation.`,
+      "config",
+    );
+    finish();
+  }
+}
+
+async function fetchSpec() {
   if (!/^https?:/.test(SPEC_URL)) {
     // A local path is allowed so the spec checks can run offline, and so this
     // suite's own failure modes can be exercised against a doctored copy.
@@ -424,10 +453,31 @@ function cadenceCheck() {
 // ---------------------------------------------------------------- live checks
 
 async function api(path) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { Authorization: `Bearer ${KEY}` },
-  });
-  assert(res.ok, `GET ${path} -> ${res.status}`);
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: { Authorization: `Bearer ${KEY}` },
+    });
+  } catch (err) {
+    throw new ConfigFault(
+      `GET ${path} could not be reached (${err.message}). That is the network or the API being down, not the documentation being wrong.`,
+    );
+  }
+  if (!res.ok) {
+    // 401/403 is the key, 429 is rate limiting, 5xx is an outage: none of them
+    // say anything about the skill. 404 and 400 do — a documented route that has
+    // gone, or a contract that changed, is what drift looks like.
+    if ([401, 403, 429].includes(res.status) || res.status >= 500) {
+      const why =
+        res.status === 401 || res.status === 403
+          ? "Check NOAN_API_KEY — revoked, rotated, or scoped away from this endpoint."
+          : res.status === 429
+            ? "Rate limited; retry later."
+            : "The API is returning errors; retry later.";
+      throw new ConfigFault(`GET ${path} -> ${res.status}: the key or the API, not the documentation. ${why}`);
+    }
+    throw new Error(`GET ${path} -> ${res.status}`);
+  }
   return res.json();
 }
 
@@ -543,12 +593,52 @@ function liveChecks() {
       const managed = new Map(
         (body.items ?? []).filter((b) => b.managed).map((b) => [b.slug, b]),
       );
-      const missing = named.filter((s) => !managed.has(s));
+      // A managed slug can be renamed in the backend and reach workspaces at
+      // different times: `product-FAQ` became `product-faq` on 2026-09-21, and
+      // for a while one workspace answered to each. The slug filter is
+      // case-sensitive, so during that window the other spelling simply does not
+      // come back, which is indistinguishable from the block having gone. A
+      // missing slug therefore gets a second lookup in lower case before it is
+      // called a rename, and a case-only difference is reported rather than
+      // failed. This is cover for a rollout, not a promise that casing never
+      // matters — a rename that changes more than case still fails, loudly.
+      let missing = named.filter((s) => !managed.has(s));
+      const cased = [];
+      if (missing.length) {
+        const retry = missing
+          .map((s) => s.toLowerCase())
+          .filter((s) => !managed.has(s));
+        if (retry.length) {
+          const alt = await api(
+            `/blocks?${retry.map((s) => `slug=${encodeURIComponent(s)}`).join("&")}&per_page=100`,
+          );
+          const found = new Set(
+            (alt.items ?? []).filter((b) => b.managed).map((b) => b.slug),
+          );
+          missing = missing.filter((s) => {
+            if (found.has(s.toLowerCase())) {
+              cased.push(`${s} is ${s.toLowerCase()} here`);
+              return false;
+            }
+            return true;
+          });
+        }
+      }
+      // None of them visible is a key that cannot see the managed catalogue —
+      // 45 simultaneous renames is not a thing that happens. Some missing is a
+      // rename, which is what this check exists to catch. Getting this wrong
+      // sends someone to edit a file over a scope problem.
+      assertConfig(
+        !(missing.length === named.length && named.length > 1),
+        `none of the ${named.length} managed slugs the skill names came back. That is a key that cannot see the managed catalogue — a stack-limited key, or the wrong project — not ${named.length} renames at once. Fix the key, not the skill.`,
+      );
       assert(
         !missing.length,
-        `named in writing-facts.md but not a managed block any more: ${missing.join(", ")}`,
+        `named in writing-facts.md but not a managed block any more: ${missing.join(", ")}. If the key changed recently, check its scope before editing the tables — a partial view looks exactly like this.`,
       );
-      return `${named.length} slugs, all present and managed`;
+      return cased.length
+        ? `${named.length} slugs present; case differs in this workspace for ${cased.join(", ")}`
+        : `${named.length} slugs, all present and managed`;
     },
   );
 
@@ -563,7 +653,14 @@ function liveChecks() {
         (stacks.items ?? []).filter((s) => s.managed).map((s) => s.title),
       );
       const missing = named.filter((t) => !titles.has(t));
-      assert(!missing.length, `named as managed industry stacks but absent: ${missing.join(", ")}`);
+      assertConfig(
+        !(missing.length === named.length && named.length > 1),
+        `none of the ${named.length} industry stacks the skill names came back, which is a key that cannot see the managed catalogue rather than ${named.length} stacks disappearing. Fix the key, not the skill.`,
+      );
+      assert(
+        !missing.length,
+        `named as managed industry stacks but absent: ${missing.join(", ")}. If the key changed recently, check its scope first.`,
+      );
       return `${named.join(", ")} all present`;
     },
   );
@@ -595,7 +692,7 @@ function liveChecks() {
         }
         if (!body.meta?.hasNext) break;
       }
-      assert(
+      assertConfig(
         sample,
         `no comment found on ${scanned} tasks, so the documented shape could not be inspected. That is a configuration problem — point the key at a workspace whose board has comments — not a documentation one.`,
       );
@@ -651,6 +748,7 @@ if (!KEY && REQUIRE_LIVE) {
     "live checks ran",
     false,
     "REQUIRE_LIVE is set but no key reached the job. On a push or a scheduled run that is a broken secret,\n     not a reason to pass: the live half of this suite checked nothing. Re-add NOAN_API_KEY (read-only).",
+    "config",
   );
 } else if (!KEY) {
   console.log(
@@ -658,6 +756,7 @@ if (!KEY && REQUIRE_LIVE) {
   );
 }
 
+function finish() {
 const failed = results.filter((r) => !r.ok);
 for (const r of results) {
   console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.name}`);
@@ -666,9 +765,38 @@ for (const r of results) {
 console.log(
   `\n${results.length - failed.length}/${results.length} checks passed${KEY ? "" : " (spec only)"}.`,
 );
-if (failed.length) {
+// Exit 1 is drift: the skill says something the API no longer does. Exit 2 is a
+// configuration fault: the suite could not check, because of the key's scope or
+// the workspace behind it. CI branches on this, so the two never get reported as
+// each other.
+const configOnly = failed.length > 0 && failed.every((r) => r.kind === "config");
+const outcome = !failed.length ? "pass" : configOnly ? "config" : "drift";
+const blocked = failed.filter((r) => r.kind === "config").length;
+if (process.env.GITHUB_OUTPUT) {
+  appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${outcome}\n`);
+  // How much of the run could not happen, so a drift report can say it checked
+  // less than it looks.
+  appendFileSync(process.env.GITHUB_OUTPUT, `blocked=${blocked}\n`);
+}
+
+if (outcome === "config") {
+  console.log(
+    "\nNothing above says the documentation is wrong. The suite could not run its live half:\nthe key's scope, or the workspace behind it, cannot answer what these checks read.\nFix the key, not the skill.",
+  );
+  process.exit(2);
+}
+if (outcome === "drift") {
+  if (blocked) {
+    console.log(
+      `\nNote: ${blocked} of these could not run at all (key, network or API), so this run checked less than it looks.`,
+    );
+  }
   console.log(
     "\nA failure here means the skill tells agents something the API no longer does.\nFix the documentation, not the check — unless the claim itself was restated, in which case update its anchor.",
   );
   process.exit(1);
 }
+process.exit(0);
+}
+
+finish();

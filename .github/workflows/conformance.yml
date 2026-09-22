@@ -39,6 +39,10 @@ jobs:
     # live API disagree" from "checkout or setup-node blipped".
     outputs:
       checks: ${{ steps.checks.outcome }}
+      # pass | drift | config — the suite classifies its own failure, so a key
+      # problem is never reported as the skill being wrong.
+      result: ${{ steps.checks.outputs.outcome }}
+      blocked: ${{ steps.checks.outputs.blocked }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,12 +55,13 @@ jobs:
           REQUIRE_LIVE: ${{ github.event_name != 'pull_request' }}
         run: node tests/conformance.mjs
 
-  # Separate job so `issues: write` is granted only where an issue can be filed,
-  # and gated on the checks step itself rather than on job failure — otherwise a
-  # checkout or setup-node blip files "the skill and the live API disagree".
+  # Separate job so `issues: write` is granted only where an issue can be filed.
+  # Gated on what the suite says about itself (`result`), not on the job failing:
+  # a checkout or setup-node blip must not file "the skill and the live API
+  # disagree", and neither must a key problem, which exits 2 as `config` below.
   report:
     needs: conformance
-    if: always() && github.event_name == 'schedule' && needs.conformance.outputs.checks == 'failure'
+    if: always() && github.event_name == 'schedule' && needs.conformance.outputs.result == 'drift'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -72,9 +77,48 @@ jobs:
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Still failing as of $(date -u +%Y-%m-%d). Run: $RUN_URL"
           else
+            blocked_note=""
+            if [ "${{ needs.conformance.outputs.blocked }}" != "0" ] && [ -n "${{ needs.conformance.outputs.blocked }}" ]; then
+              blocked_note=" Note: ${{ needs.conformance.outputs.blocked }} check(s) in this run could not run at all (key, network or API), so it checked less than it looks."
+            fi
             body=$(printf '%s\n\n%s\n\n%s' \
-              "The weekly conformance run failed, which means the skill states something the API no longer does." \
+              "The weekly conformance run failed, which means the skill states something the API no longer does.$blocked_note" \
               "Run: $RUN_URL" \
               "Read the failing check name — each one names the claim and the file that makes it. Fix the documentation rather than the check, unless the claim was merely reworded, in which case update its anchor.")
             gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label documentation --body "$body"
+          fi
+
+  # A configuration fault is not drift and must not be filed as it: exit 2 means
+  # the suite could not check, not that the skill is wrong. It still gets an
+  # issue, because a red run nobody reads is the failure mode this whole
+  # workflow exists to prevent.
+  report-config:
+    needs: conformance
+    # `result == ''` is the suite dying before it could classify anything — a
+    # crash, or the runner going away. That used to file nothing at all, which is
+    # a red scheduled run telling nobody. `checks` exists for exactly this.
+    if: >-
+      always() && github.event_name == 'schedule' &&
+      (needs.conformance.outputs.result == 'config' ||
+       (needs.conformance.outputs.checks == 'failure' && needs.conformance.outputs.result == ''))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: File or update the configuration issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Conformance: the suite cannot run its checks"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Still unable to run as of $(date -u +%Y-%m-%d). Run: $RUN_URL"
+          else
+            body=$(printf '%s\n\n%s\n\n%s' \
+              "The weekly conformance run could not check the skill. Nothing here says the documentation is wrong." \
+              "Run: $RUN_URL" \
+              "Usual causes, in order: the NOAN_API_KEY secret (revoked, rotated, or scoped away — a 401, 403 or an empty workspace), the API being unreachable or rate limited, the published spec not fetching, or the run dying before it could classify itself. Fix the key or wait out the outage; do not edit the skill.")
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label configuration --body "$body"
           fi
