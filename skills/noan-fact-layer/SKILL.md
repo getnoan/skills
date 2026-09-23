@@ -142,8 +142,8 @@ After auth succeeds, check `GET /facts?per_page=1` and read `meta.totalItems`.
 | Goal                  | Call                                                                                              |
 | --------------------- | ------------------------------------------------------------------------------------------------- |
 | Verify auth / project | `GET /me`                                                                                         |
-| List stacks           | `GET /stacks` (params: `slug`, `title`, `custom_only`, `in_use_only`)                             |
-| List blocks           | `GET /blocks` (params: `slug`, `title`, `custom_only`, `in_use_only`)                             |
+| List stacks           | `GET /stacks` (params: `slug`, `title`, `custom_only`, `in_use_only`) — items carry `description` and `inUse`                             |
+| List blocks           | `GET /blocks` (params: `slug`, `title`, `custom_only`, `in_use_only`) — items carry `description`                             |
 | Facts for a block     | `GET /facts?block_slug=<slug>`                                                                    |
 | All facts             | `GET /facts`                                                                                      |
 | Fact edit history     | `GET /facts/{factId}/versions` (paginated, newest lineage of one fact)                            |
@@ -255,7 +255,7 @@ Before writing to stacks, blocks, or facts, read `references/writing-facts.md`
 (or fetch
 <https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/writing-facts.md>
 if installed as a single file) — it covers granularity, descriptions (required
-on create, and returned by no read endpoint), slug hygiene, and the
+on create, returned on reads, and never updatable), slug hygiene, and the
 one-truth-one-home rule. These rules apply to every write, not just first
 setup.
 
@@ -275,6 +275,7 @@ preserved the block or destroyed it. Posting only the new entry wipes the rest.
 | Add a fact            | `POST /facts`                      | `blockSlug`, `content` — replaces the block's fact; see warning above                                                                           |
 | Create stack          | `POST /stacks`                     | `title`, `description`, `blocks[]` (each block needs `title` **and** `description`)                                                             |
 | Create block          | `POST /stacks/{stackId}/blocks`    | `title` (+ `description`)                                                                                                                       |
+| Add a stack to the project | `POST /stacks/{stackId}/use`  | no body — every managed stack is listed by `GET /stacks`, but only the ones in use surface their facts in the project. `inUse` on the read says which |
 | Create contact        | `POST /contacts`                   | `name` (+ alias, email, phoneNumber, website, notes[], companyRoles[] as `{companyName, role?}`, tagIds[]) — omit unset keys, never send `null` |
 | Update contact        | `PATCH /contacts/{contactId}`      | any subset above; `notes`, `companyRoles`, `tagIds` are full replacements, not merges                                                           |
 | Log against a contact | `POST /contacts/{contactId}/memos` | `memos[]`, each `{content, title?}` — appends without touching existing memos                                                                   |
@@ -283,6 +284,7 @@ preserved the block or destroyed it. Posting only the new entry wipes the rest.
 | Update tag            | `PATCH /tags/{tagId}`              | any subset of `name`, `usageInstructions`, `category`, `color`                                                                                  |
 | Create asset          | `POST /assets`                     | `title`, `text` (+ description, createPrompt, tagIds[]) — creates the asset with its first version                                              |
 | Add asset version     | `POST /assets/{assetId}/versions`  | `text` (+ title, description, createPrompt — omitted fields keep the asset's current values) — becomes the active version                       |
+| Set asset tags        | `PUT /assets/{assetId}/tags`       | `tagIds[]` — full replacement, not append, the same as the task tag routes. Takes the stable `originalId`, not the composite id from `GET /assets` |
 | Create task           | `POST /tasks`                      | `title` (+ details, dueDate `YYYY-MM-DD`, status, externalId)                                                                                   |
 | Update task           | `PATCH /tasks/{taskId}`            | any subset of `title`, `details`, `dueDate`, `completed`, `status` (`backlog`/`in-progress`/`done`) — partial, omitted fields untouched         |
 | Set task tags         | `PUT /tasks/{taskId}/tags`         | `tagIds[]`                                                                                                                                      |
