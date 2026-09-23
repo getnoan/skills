@@ -43,11 +43,18 @@ jobs:
       # problem is never reported as the skill being wrong.
       result: ${{ steps.checks.outputs.outcome }}
       blocked: ${{ steps.checks.outputs.blocked }}
+      failures: ${{ steps.checks.outputs.failures }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # Before the suite, so it runs even when the checks step fails: the
+      # reporter is the thing that would otherwise have no execution until the
+      # first real failure needed it to work.
+      - name: Exercise the drift reporter against a stub board
+        run: node tests/report-drift.selftest.mjs
+
       - name: Check the skill against the spec and the live API
         id: checks
         env:
@@ -62,12 +69,22 @@ jobs:
   report:
     needs: conformance
     if: always() && github.event_name == 'schedule' && needs.conformance.outputs.result == 'drift'
+    # The write key lives in this environment, which is restricted to main, so a
+    # workflow edited on a branch cannot read it. The report jobs are the only
+    # thing that needs it, and they only ever run on a schedule.
+    environment: noan-write
     runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: File or update the drift issue
+        id: issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -76,6 +93,7 @@ jobs:
           existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[0].number')
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Still failing as of $(date -u +%Y-%m-%d). Run: $RUN_URL"
+            url=$(gh issue view "$existing" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
           else
             blocked_note=""
             if [ "${{ needs.conformance.outputs.blocked }}" != "0" ] && [ -n "${{ needs.conformance.outputs.blocked }}" ]; then
@@ -85,8 +103,21 @@ jobs:
               "The weekly conformance run failed, which means the skill states something the API no longer does.$blocked_note" \
               "Run: $RUN_URL" \
               "Read the failing check name — each one names the claim and the file that makes it. Fix the documentation rather than the check, unless the claim was merely reworded, in which case update its anchor.")
-            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label documentation --body "$body"
+            url=$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label documentation --body "$body")
           fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # The issue is where the fix lands; the task is what makes a person look
+      # at it. Separate write-scoped key: the suite's own key stays read-only
+      # because that job runs code from pull requests, and this one never does.
+      - name: File or update the NOAN task
+        env:
+          NOAN_TASK_API_KEY: ${{ secrets.NOAN_TASK_API_KEY }}
+          KIND: drift
+          FAILURES: ${{ needs.conformance.outputs.failures }}
+          ISSUE_URL: ${{ steps.issue.outputs.url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node tests/report-drift.mjs
 
   # A configuration fault is not drift and must not be filed as it: exit 2 means
   # the suite could not check, not that the skill is wrong. It still gets an
@@ -101,12 +132,22 @@ jobs:
       always() && github.event_name == 'schedule' &&
       (needs.conformance.outputs.result == 'config' ||
        (needs.conformance.outputs.checks == 'failure' && needs.conformance.outputs.result == ''))
+    # The write key lives in this environment, which is restricted to main, so a
+    # workflow edited on a branch cannot read it. The report jobs are the only
+    # thing that needs it, and they only ever run on a schedule.
+    environment: noan-write
     runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: File or update the configuration issue
+        id: issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -115,10 +156,21 @@ jobs:
           existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[0].number')
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Still unable to run as of $(date -u +%Y-%m-%d). Run: $RUN_URL"
+            url=$(gh issue view "$existing" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
           else
             body=$(printf '%s\n\n%s\n\n%s' \
               "The weekly conformance run could not check the skill. Nothing here says the documentation is wrong." \
               "Run: $RUN_URL" \
               "Usual causes, in order: the NOAN_API_KEY secret (revoked, rotated, or scoped away — a 401, 403 or an empty workspace), the API being unreachable or rate limited, the published spec not fetching, or the run dying before it could classify itself. Fix the key or wait out the outage; do not edit the skill.")
-            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label configuration --body "$body"
+            url=$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label configuration --body "$body")
           fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: File or update the NOAN task
+        env:
+          NOAN_TASK_API_KEY: ${{ secrets.NOAN_TASK_API_KEY }}
+          KIND: config
+          FAILURES: ${{ needs.conformance.outputs.failures }}
+          ISSUE_URL: ${{ steps.issue.outputs.url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node tests/report-drift.mjs
