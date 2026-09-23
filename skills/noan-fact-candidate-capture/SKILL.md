@@ -73,6 +73,10 @@ workspace ([app.getnoan.com](https://app.getnoan.com) → API keys):
 export NOAN_API_KEY=...
 ```
 
+Read the key from `NOAN_API_KEY`, or from `NOAN_PERSONAL_API_KEY` if that is
+what is set — the same two names the `noan-fact-layer` skill accepts, because
+a machine set up for one of these skills is set up for both.
+
 Never paste a key into a chat; set it in the environment the tools run in.
 Don't fall back to another key you happen to find — every write is attributed
 to whoever owns it.
