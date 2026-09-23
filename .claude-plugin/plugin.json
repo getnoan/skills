@@ -1,0 +1,8 @@
+{
+  "name": "noan",
+  "version": "1.0.0",
+  "description": "Ground any agent in your company's verified facts via the NOAN API, and capture durable business facts for review as they surface.",
+  "author": { "name": "NOAN", "url": "https://getnoan.com" },
+  "homepage": "https://getnoan.com/agents",
+  "license": "MIT"
+}

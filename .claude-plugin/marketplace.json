@@ -1,5 +1,6 @@
 {
   "name": "noan-skills",
+  "description": "Open Agent Skills for building on NOAN — ground any agent, any model, in your company's verified facts.",
   "owner": {
     "name": "NOAN",
     "email": "hello@getnoan.com",
