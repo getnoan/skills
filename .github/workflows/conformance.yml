@@ -69,6 +69,10 @@ jobs:
   report:
     needs: conformance
     if: always() && github.event_name == 'schedule' && needs.conformance.outputs.result == 'drift'
+    # The write key lives in this environment, which is restricted to main, so a
+    # workflow edited on a branch cannot read it. The report jobs are the only
+    # thing that needs it, and they only ever run on a schedule.
+    environment: noan-write
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -128,6 +132,10 @@ jobs:
       always() && github.event_name == 'schedule' &&
       (needs.conformance.outputs.result == 'config' ||
        (needs.conformance.outputs.checks == 'failure' && needs.conformance.outputs.result == ''))
+    # The write key lives in this environment, which is restricted to main, so a
+    # workflow edited on a branch cannot read it. The report jobs are the only
+    # thing that needs it, and they only ever run on a schedule.
+    environment: noan-write
     runs-on: ubuntu-latest
     permissions:
       contents: read
