@@ -24,7 +24,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SKILL_DIR = join(ROOT, "skills", "noan-fact-layer");
 const BASE = process.env.NOAN_API_BASE ?? "https://api.getnoan.com/v1";
-const SPEC_URL = process.env.NOAN_OPENAPI_URL ?? "https://api.getnoan.com/openapi.json";
+const SPEC_URL =
+  process.env.NOAN_OPENAPI_URL ?? "https://api.getnoan.com/openapi.json";
 const KEY = process.env.NOAN_API_KEY ?? process.env.NOAN_PERSONAL_API_KEY ?? "";
 // Set by CI on every event that is meant to reach the API. Without it, a
 // rotated or revoked secret would leave the weekly backstop reporting success
@@ -68,7 +69,9 @@ function anchorsPresent(name, anchors) {
       false,
       `anchor text no longer in the skill: ${missing
         .map(([f, q]) => `${f}: "${q.slice(0, 60)}…"`)
-        .join("; ")}\n     The claim was edited or removed — update this check, or restore the claim.`,
+        .join(
+          "; ",
+        )}\n     The claim was edited or removed — update this check, or restore the claim.`,
     );
     return false;
   }
@@ -97,7 +100,12 @@ async function runRegistry({ runLive }) {
     try {
       record(c.name, true, await c.fn());
     } catch (err) {
-      record(c.name, false, err.message, err instanceof ConfigFault ? "config" : "doc");
+      record(
+        c.name,
+        false,
+        err.message,
+        err instanceof ConfigFault ? "config" : "doc",
+      );
     }
   }
   return anchored.filter((c) => c.live && !runLive).length;
@@ -176,7 +184,9 @@ function specChecks() {
         `DELETE now exists on: ${deletes.join(", ")} — the merge/split guidance in writing-facts.md is out of date`,
       );
       for (const p of ["/stacks", "/stacks/{stackId}/blocks", "/facts"]) {
-        const mutating = methodsOf(p).filter((m) => m === "patch" || m === "put");
+        const mutating = methodsOf(p).filter(
+          (m) => m === "patch" || m === "put",
+        );
         assert(
           mutating.length === 0,
           `${p} now accepts ${mutating.join("/")} — "no move, no delete" no longer holds`,
@@ -190,11 +200,15 @@ function specChecks() {
     "descriptions are absent from every read schema",
     [
       ["writing", "No read endpoint returns one"],
-      ["skill", "descriptions (required on create, and returned by no read endpoint)"],
+      [
+        "skill",
+        "descriptions (required on create, and returned by no read endpoint)",
+      ],
     ],
     () => {
       const s = spec.components.schemas;
-      const has = (n) => Object.keys(s[n]?.properties ?? {}).includes("description");
+      const has = (n) =>
+        Object.keys(s[n]?.properties ?? {}).includes("description");
       assert(
         !has("BlockListItem"),
         "BlockListItem now carries `description` — GET /blocks returns it, so the Descriptions section is out of date (this is the good outcome; see getnoan/noan#1555)",
@@ -213,11 +227,16 @@ function specChecks() {
 
   check(
     "a block created via POST /stacks echoes its description",
-    [["writing", "`POST /stacks` returns it on the stack and on each nested block"]],
+    [
+      [
+        "writing",
+        "`POST /stacks` returns it on the stack and on each nested block",
+      ],
+    ],
     () => {
       const blocks =
-        spec.paths["/stacks"].post.responses["201"].content["application/json"].schema
-          .properties.stack.properties.blocks;
+        spec.paths["/stacks"].post.responses["201"].content["application/json"]
+          .schema.properties.stack.properties.blocks;
       const ref = blocks?.items?.$ref ?? "";
       assert(
         ref.endsWith("/BlockDetailed"),
@@ -230,12 +249,18 @@ function specChecks() {
   check(
     "managed stacks reject added blocks",
     [
-      ["writing", "`POST /stacks/{stackId}/blocks` on a managed stack is refused"],
+      [
+        "writing",
+        "`POST /stacks/{stackId}/blocks` on a managed stack is refused",
+      ],
       ["skill", "You cannot add a block to a managed stack"],
     ],
     () => {
       const op = spec.paths["/stacks/{stackId}/blocks"].post;
-      assert(op.responses["403"], "POST /stacks/{stackId}/blocks no longer documents 403");
+      assert(
+        op.responses["403"],
+        "POST /stacks/{stackId}/blocks no longer documents 403",
+      );
       const prose = `${op.description ?? ""} ${spec.paths["/stacks"].post.description ?? ""}`;
       assert(
         /managed stacks? cannot be (created or )?modified/i.test(prose),
@@ -250,7 +275,8 @@ function specChecks() {
     [["skill", "There is no `GET /tasks/{taskId}`"]],
     () => {
       assert(
-        !spec.paths["/tasks/{taskId}"] || !methodsOf("/tasks/{taskId}").includes("get"),
+        !spec.paths["/tasks/{taskId}"] ||
+          !methodsOf("/tasks/{taskId}").includes("get"),
         "GET /tasks/{taskId} now exists — SKILL.md says it does not",
       );
       assert(
@@ -275,7 +301,12 @@ function specChecks() {
 
   check(
     "creates still require what the write table says they require",
-    [["skill", "`title`, `description`, `blocks[]` (each block needs `title` **and** `description`)"]],
+    [
+      [
+        "skill",
+        "`title`, `description`, `blocks[]` (each block needs `title` **and** `description`)",
+      ],
+    ],
     () => {
       const req = (n) => spec.components.schemas[n]?.required ?? [];
       for (const f of ["title", "description", "blocks"]) {
@@ -294,7 +325,12 @@ function specChecks() {
 
   check(
     "documented length limits still match the spec",
-    [["skill", "task `details` 2048 · task comment `content` 25,000 · note `content` 25,000"]],
+    [
+      [
+        "skill",
+        "task `details` 2048 · task comment `content` 25,000 · note `content` 25,000",
+      ],
+    ],
     () => {
       const max = (schema, field) =>
         spec.components.schemas[schema]?.properties?.[field]?.maxLength;
@@ -345,7 +381,12 @@ function specChecks() {
 
   check(
     "GET /tasks still cannot filter on externalId",
-    [["first", "`GET /tasks?externalId=…` is silently ignored and returns the **entire"]],
+    [
+      [
+        "first",
+        "`GET /tasks?externalId=…` is silently ignored and returns the **entire",
+      ],
+    ],
     () => {
       const names = (spec.paths["/tasks"].get.parameters ?? [])
         .map((x) => x.name)
@@ -382,19 +423,34 @@ function specChecks() {
       // deleted", and a path-level set cannot see it.
       const known = new Set([
         "GET /me",
-        "GET /stacks", "POST /stacks", "POST /stacks/{stackId}/blocks",
+        "GET /stacks",
+        "POST /stacks",
+        "POST /stacks/{stackId}/blocks",
         "GET /blocks",
-        "GET /facts", "POST /facts", "GET /facts/{factId}/versions",
-        "GET /contacts", "POST /contacts",
-        "GET /contacts/{contactId}", "PATCH /contacts/{contactId}",
-        "POST /contacts/{contactId}/memos", "POST /contacts/{contactId}/notes",
-        "GET /notes", "POST /notes",
-        "GET /tags", "POST /tags", "PATCH /tags/{tagId}",
-        "GET /tasks", "POST /tasks", "PATCH /tasks/{taskId}",
-        "PUT /tasks/{taskId}/assignees", "PUT /tasks/{taskId}/contacts",
+        "GET /facts",
+        "POST /facts",
+        "GET /facts/{factId}/versions",
+        "GET /contacts",
+        "POST /contacts",
+        "GET /contacts/{contactId}",
+        "PATCH /contacts/{contactId}",
+        "POST /contacts/{contactId}/memos",
+        "POST /contacts/{contactId}/notes",
+        "GET /notes",
+        "POST /notes",
+        "GET /tags",
+        "POST /tags",
+        "PATCH /tags/{tagId}",
+        "GET /tasks",
+        "POST /tasks",
+        "PATCH /tasks/{taskId}",
+        "PUT /tasks/{taskId}/assignees",
+        "PUT /tasks/{taskId}/contacts",
         "PUT /tasks/{taskId}/tags",
-        "POST /tasks/{taskId}/comments",   // shipped 2026-09-18; the skill's Writes table and conventions cover it
-        "GET /assets", "POST /assets", "POST /assets/{assetId}/versions",
+        "POST /tasks/{taskId}/comments", // shipped 2026-09-18; the skill's Writes table and conventions cover it
+        "GET /assets",
+        "POST /assets",
+        "POST /assets/{assetId}/versions",
       ]);
       const live = new Set(
         Object.keys(spec.paths).flatMap((p) =>
@@ -435,7 +491,9 @@ function cadenceCheck() {
       assert(cron, "no cron found in .github/workflows/conformance.yml");
       const dow = cron.trim().split(/\s+/)[4];
       const actual = dow === "*" ? "daily" : "weekly";
-      const claimed = /read-only call (weekly|daily|nightly)/.exec(flat.skill)?.[1];
+      const claimed = /read-only call (weekly|daily|nightly)/.exec(
+        flat.skill,
+      )?.[1];
       assert(
         claimed,
         'SKILL.md no longer states a cadence after "read-only call" — either restate it or drop this check',
@@ -474,7 +532,9 @@ async function api(path) {
           : res.status === 429
             ? "Rate limited; retry later."
             : "The API is returning errors; retry later.";
-      throw new ConfigFault(`GET ${path} -> ${res.status}: the key or the API, not the documentation. ${why}`);
+      throw new ConfigFault(
+        `GET ${path} -> ${res.status}: the key or the API, not the documentation. ${why}`,
+      );
     }
     throw new Error(`GET ${path} -> ${res.status}`);
   }
@@ -514,7 +574,9 @@ function slugsNamedInDoc() {
 function industryStacksNamedInDoc() {
   const m = text.writing.match(/it carries\s+industry ones[^.]*\./s);
   if (!m) return [];
-  return [...m[0].matchAll(/`([A-Z][A-Za-z-]*(?: [A-Z][A-Za-z-]*)?)`/g)].map((x) => x[1]);
+  return [...m[0].matchAll(/`([A-Z][A-Za-z-]*(?: [A-Z][A-Za-z-]*)?)`/g)].map(
+    (x) => x[1],
+  );
 }
 
 function liveChecks() {
@@ -523,7 +585,10 @@ function liveChecks() {
     [["skill", "Verify auth before real work"]],
     async () => {
       const me = await api("/me");
-      assert(me.project?.id && me.identity?.id, "GET /me no longer returns project and identity");
+      assert(
+        me.project?.id && me.identity?.id,
+        "GET /me no longer returns project and identity",
+      );
       return "GET /me returns project and identity";
     },
   );
@@ -551,7 +616,13 @@ function liveChecks() {
       const item = body.items?.[0];
       assertPopulated(item, "/stacks");
       assert(
-        sameSet(Object.keys(item), ["id", "slug", "title", "managed", "blocks"]),
+        sameSet(Object.keys(item), [
+          "id",
+          "slug",
+          "title",
+          "managed",
+          "blocks",
+        ]),
         `GET /stacks item keys are now {${Object.keys(item).sort().join(", ")}}`,
       );
       const nested = item.blocks?.[0];
@@ -584,7 +655,10 @@ function liveChecks() {
     [["writing", "Those slugs cover the seven generic stacks only"]],
     async () => {
       const named = slugsNamedInDoc();
-      assert(named.length >= 30, `only ${named.length} slugs parsed from the tables — the parser or the tables changed shape`);
+      assert(
+        named.length >= 30,
+        `only ${named.length} slugs parsed from the tables — the parser or the tables changed shape`,
+      );
       // `slug` is exact and repeatable, and an unknown slug is simply absent
       // from the response rather than an error — so the whole table costs one
       // request, and "named but missing" is the answer we want.
@@ -647,7 +721,10 @@ function liveChecks() {
     [["writing", "Scan `GET /stacks` for one that matches the business"]],
     async () => {
       const named = industryStacksNamedInDoc();
-      assert(named.length >= 4, `parsed only ${named.length} industry stack names — check the parser against the paragraph`);
+      assert(
+        named.length >= 4,
+        `parsed only ${named.length} industry stack names — check the parser against the paragraph`,
+      );
       const stacks = await api("/stacks?per_page=100");
       const titles = new Set(
         (stacks.items ?? []).filter((s) => s.managed).map((s) => s.title),
@@ -721,13 +798,21 @@ function liveChecks() {
 
   liveCheck(
     "contact list and single-contact shapes still differ as documented",
-    [["skill", "The `memos`, `notes`, `companyRoles` and `tasks` fields exist **only** on"]],
+    [
+      [
+        "skill",
+        "The `memos`, `notes`, `companyRoles` and `tasks` fields exist **only** on",
+      ],
+    ],
     async () => {
       const body = await api("/contacts?per_page=1");
       const item = body.items?.[0];
       assertPopulated(item, "/contacts");
       for (const f of ["memos", "companyRoles", "tasks"]) {
-        assert(!(f in item), `GET /contacts summary now carries ${f} — the two-shapes warning is out of date`);
+        assert(
+          !(f in item),
+          `GET /contacts summary now carries ${f} — the two-shapes warning is out of date`,
+        );
       }
       return "summary still omits memos, companyRoles, tasks";
     },
@@ -757,52 +842,53 @@ if (!KEY && REQUIRE_LIVE) {
 }
 
 function finish() {
-const failed = results.filter((r) => !r.ok);
-for (const r of results) {
-  console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.name}`);
-  if (r.detail) console.log(`      ${r.detail}`);
-}
-console.log(
-  `\n${results.length - failed.length}/${results.length} checks passed${KEY ? "" : " (spec only)"}.`,
-);
-// Exit 1 is drift: the skill says something the API no longer does. Exit 2 is a
-// configuration fault: the suite could not check, because of the key's scope or
-// the workspace behind it. CI branches on this, so the two never get reported as
-// each other.
-const configOnly = failed.length > 0 && failed.every((r) => r.kind === "config");
-const outcome = !failed.length ? "pass" : configOnly ? "config" : "drift";
-const blocked = failed.filter((r) => r.kind === "config").length;
-if (process.env.GITHUB_OUTPUT) {
-  appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${outcome}\n`);
-  // How much of the run could not happen, so a drift report can say it checked
-  // less than it looks.
-  appendFileSync(process.env.GITHUB_OUTPUT, `blocked=${blocked}\n`);
-  // The failing check names, so the report path can name them without paying
-  // for a second run of the whole suite.
-  appendFileSync(
-    process.env.GITHUB_OUTPUT,
-    `failures<<CONF_EOF\n${failed.map((r) => r.name).join("\n")}\nCONF_EOF\n`,
-  );
-}
-
-if (outcome === "config") {
-  console.log(
-    "\nNothing above says the documentation is wrong. The suite could not run its live half:\nthe key's scope, or the workspace behind it, cannot answer what these checks read.\nFix the key, not the skill.",
-  );
-  process.exit(2);
-}
-if (outcome === "drift") {
-  if (blocked) {
-    console.log(
-      `\nNote: ${blocked} of these could not run at all (key, network or API), so this run checked less than it looks.`,
-    );
+  const failed = results.filter((r) => !r.ok);
+  for (const r of results) {
+    console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.name}`);
+    if (r.detail) console.log(`      ${r.detail}`);
   }
   console.log(
-    "\nA failure here means the skill tells agents something the API no longer does.\nFix the documentation, not the check — unless the claim itself was restated, in which case update its anchor.",
+    `\n${results.length - failed.length}/${results.length} checks passed${KEY ? "" : " (spec only)"}.`,
   );
-  process.exit(1);
-}
-process.exit(0);
+  // Exit 1 is drift: the skill says something the API no longer does. Exit 2 is a
+  // configuration fault: the suite could not check, because of the key's scope or
+  // the workspace behind it. CI branches on this, so the two never get reported as
+  // each other.
+  const configOnly =
+    failed.length > 0 && failed.every((r) => r.kind === "config");
+  const outcome = !failed.length ? "pass" : configOnly ? "config" : "drift";
+  const blocked = failed.filter((r) => r.kind === "config").length;
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${outcome}\n`);
+    // How much of the run could not happen, so a drift report can say it checked
+    // less than it looks.
+    appendFileSync(process.env.GITHUB_OUTPUT, `blocked=${blocked}\n`);
+    // The failing check names, so the report path can name them without paying
+    // for a second run of the whole suite.
+    appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      `failures<<CONF_EOF\n${failed.map((r) => r.name).join("\n")}\nCONF_EOF\n`,
+    );
+  }
+
+  if (outcome === "config") {
+    console.log(
+      "\nNothing above says the documentation is wrong. The suite could not run its live half:\nthe key's scope, or the workspace behind it, cannot answer what these checks read.\nFix the key, not the skill.",
+    );
+    process.exit(2);
+  }
+  if (outcome === "drift") {
+    if (blocked) {
+      console.log(
+        `\nNote: ${blocked} of these could not run at all (key, network or API), so this run checked less than it looks.`,
+      );
+    }
+    console.log(
+      "\nA failure here means the skill tells agents something the API no longer does.\nFix the documentation, not the check — unless the claim itself was restated, in which case update its anchor.",
+    );
+    process.exit(1);
+  }
+  process.exit(0);
 }
 
 finish();
