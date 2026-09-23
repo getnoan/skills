@@ -196,32 +196,42 @@ function specChecks() {
     },
   );
 
+  // Inverted 2026-09-23, when getnoan/noan#1555 shipped: reads carry a
+  // description now. The old check asserted their ABSENCE and called its own
+  // failure the good outcome, which is what it turned out to be. Kept pointing
+  // the other way rather than deleted — the guidance now rests on descriptions
+  // being readable, so their disappearance is the thing worth catching.
   check(
-    "descriptions are absent from every read schema",
+    "descriptions are returned by the read schemas",
     [
-      ["writing", "No read endpoint returns one"],
+      ["writing", "Reads return one now"],
       [
         "skill",
-        "descriptions (required on create, and returned by no read endpoint)",
+        "descriptions (required on create, returned on reads, and never updatable)",
       ],
     ],
     () => {
       const s = spec.components.schemas;
       const has = (n) =>
         Object.keys(s[n]?.properties ?? {}).includes("description");
-      assert(
-        !has("BlockListItem"),
-        "BlockListItem now carries `description` — GET /blocks returns it, so the Descriptions section is out of date (this is the good outcome; see getnoan/noan#1555)",
+      for (const n of ["BlockListItem", "Stack", "BlockDetailed"]) {
+        assert(
+          has(n),
+          `${n} no longer carries \`description\` — reads used to omit it and the guidance was rewritten when they stopped; if it has gone again, writing-facts.md is wrong`,
+        );
+      }
+      // The half that did NOT change, and the reason a description still cannot
+      // be treated like a fact: there is no route that updates one.
+      const updatable = Object.entries(spec.paths).filter(
+        ([p, ops]) =>
+          /^\/stacks(\/\{stackId\}\/blocks)?$/.test(p) &&
+          Object.keys(ops).some((m) => m === "patch" || m === "put"),
       );
       assert(
-        !has("Stack"),
-        "Stack now carries `description` — GET /stacks returns it; update the Descriptions section",
+        updatable.length === 0,
+        `a description can be edited now (${updatable.map(([p]) => p).join(", ")}) — write-once is the whole reason the guidance says to put durable text in the fact`,
       );
-      assert(
-        has("BlockDetailed"),
-        "BlockDetailed no longer carries `description` — the create-response claim is wrong",
-      );
-      return "BlockListItem/Stack without it, BlockDetailed with it";
+      return "BlockListItem, Stack, BlockDetailed all carry it; still write-once";
     },
   );
 
@@ -230,7 +240,7 @@ function specChecks() {
     [
       [
         "writing",
-        "`POST /stacks` returns it on the stack and on each nested block",
+        "`POST /stacks` returns the description on the stack and on each nested block",
       ],
     ],
     () => {
@@ -426,6 +436,7 @@ function specChecks() {
         "GET /stacks",
         "POST /stacks",
         "POST /stacks/{stackId}/blocks",
+        "POST /stacks/{stackId}/use",
         "GET /blocks",
         "GET /facts",
         "POST /facts",
@@ -451,6 +462,7 @@ function specChecks() {
         "GET /assets",
         "POST /assets",
         "POST /assets/{assetId}/versions",
+        "PUT /assets/{assetId}/tags",
       ]);
       const live = new Set(
         Object.keys(spec.paths).flatMap((p) =>
@@ -595,13 +607,13 @@ function liveChecks() {
 
   liveCheck(
     "GET /blocks item shape",
-    [["writing", "`GET /blocks` gives `{id, slug, title, managed, stack}`"]],
+    [["writing", "`GET /blocks` gives `{id, slug, title, description, managed, stack}`"]],
     async () => {
       const body = await api("/blocks?per_page=1");
       const item = body.items?.[0];
       assertPopulated(item, "/blocks");
       assert(
-        sameSet(Object.keys(item), ["id", "slug", "title", "managed", "stack"]),
+        sameSet(Object.keys(item), ["id", "slug", "title", "description", "managed", "stack"]),
         `GET /blocks item keys are now {${Object.keys(item).sort().join(", ")}}`,
       );
       return "unchanged";
@@ -610,7 +622,7 @@ function liveChecks() {
 
   liveCheck(
     "GET /stacks item shape, including nested blocks",
-    [["writing", "`GET /stacks` gives `{id, slug, title, managed, blocks}`"]],
+    [["writing", "`GET /stacks` gives `{id, slug, title, description, managed, inUse, blocks}`"]],
     async () => {
       const body = await api("/stacks?per_page=1");
       const item = body.items?.[0];
@@ -620,7 +632,9 @@ function liveChecks() {
           "id",
           "slug",
           "title",
+          "description",
           "managed",
+          "inUse",
           "blocks",
         ]),
         `GET /stacks item keys are now {${Object.keys(item).sort().join(", ")}}`,
@@ -628,8 +642,8 @@ function liveChecks() {
       const nested = item.blocks?.[0];
       if (nested) {
         assert(
-          sameSet(Object.keys(nested), ["id", "slug"]),
-          `nested block keys are now {${Object.keys(nested).sort().join(", ")}} — if that includes description, the Descriptions section can be rewritten`,
+          sameSet(Object.keys(nested), ["id", "slug", "description", "managed"]),
+          `nested block keys are now {${Object.keys(nested).sort().join(", ")}}`,
         );
       }
       return "unchanged";

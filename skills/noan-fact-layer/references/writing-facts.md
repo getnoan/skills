@@ -233,15 +233,24 @@ roughly right did.
 Every stack and block gets a description, written on create and never
 afterwards — there is no update route for either.
 
-**Know what a description can and cannot do.** No read endpoint returns one:
-`GET /stacks` gives `{id, slug, title, managed, blocks}` and `GET /blocks` gives
-`{id, slug, title, managed, stack}`. The only place one comes back is a create
-response — `POST /stacks` returns it on the stack and on each nested block,
-`POST /stacks/{stackId}/blocks` on the block — and nowhere else, ever. Treat a
-description as write-and-forget from the API's side, and as something the humans
-curating the workspace read in the app. An agent grounding over the API routes on **titles** and on the **content
-of the facts themselves** — so anything a later reader must know has to be in
-the fact, not in the description around it.
+**Know what a description can and cannot do.** Reads return one now:
+`GET /stacks` gives `{id, slug, title, description, managed, inUse, blocks}`,
+its nested blocks give `{id, slug, description, managed}` — no title, so a
+nested block still has to be resolved through `GET /blocks` to be named — and
+`GET /blocks` gives `{id, slug, title, description, managed, stack}`.
+A create response still carries it too: `POST /stacks` returns the description
+on the stack and on each nested block. Until
+September 2026 no read endpoint returned a description at all, and this file
+said so — if you are working from an older copy of this guidance, that is the
+line that changed.
+
+What has not changed is that a description is written once, on create, and
+never afterwards: there is still no update route for a stack or a block. So it
+is a label on the container, fixed at birth, while the fact inside it is
+versioned and rewritable. An agent grounding over the API still routes on
+**titles** and on the **content of the facts themselves** — anything a later
+reader must know belongs in the fact, not in the description around it, because
+the description is the one part of the workspace nobody can correct.
 
 Write them anyway, and write them well: they are how a human decides what
 belongs in a block, which is what keeps two blocks from drifting into the same
