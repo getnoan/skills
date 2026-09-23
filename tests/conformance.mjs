@@ -528,6 +528,70 @@ function cadenceCheck() {
 
 // ---------------------------------------------------------------- live checks
 
+// The MCP server is a SECOND external service this suite depends on: the capture
+// skill documents a tool surface the OpenAPI spec knows nothing about, so the
+// only way to check those claims is to ask the server. Same classification rule
+// as api() below — the key, the network and an outage say nothing about the
+// documentation, and reporting them as drift would file an issue, and a task for
+// a person, because a service was down.
+async function mcpTools() {
+  let res;
+  try {
+    res = await fetch(MCP_URL, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${KEY}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    });
+  } catch (err) {
+    throw new ConfigFault(
+      `POST ${MCP_URL} tools/list could not be reached (${err.message}). That is the network or the MCP server being down, not the documentation being wrong.`,
+    );
+  }
+  if (!res.ok) {
+    if ([401, 403, 429].includes(res.status) || res.status >= 500) {
+      const why =
+        res.status === 401 || res.status === 403
+          ? "Check the key — revoked, rotated, or not entitled to the MCP server."
+          : res.status === 429
+            ? "Rate limited; retry later."
+            : "The MCP server is returning errors; retry later.";
+      throw new ConfigFault(
+        `POST ${MCP_URL} tools/list -> ${res.status}: the key or the server, not the documentation. ${why}`,
+      );
+    }
+    // 404 and 400 are the drift shapes: the endpoint moved, or it no longer
+    // accepts the call the skill's instructions rest on.
+    throw new Error(`POST ${MCP_URL} tools/list -> ${res.status}`);
+  }
+  // The server answers as an SSE frame rather than a bare JSON body. A payload
+  // this cannot read is the transport changing, not a claim being wrong.
+  const body = await res.text();
+  const frame = body.startsWith("{")
+    ? body
+    : (body.split("\n").find((l) => l.startsWith("data: ")) ?? "").slice(6);
+  if (!frame) {
+    throw new ConfigFault(
+      `tools/list returned no JSON payload from ${MCP_URL} — the transport changed shape, so the tool claims could not be checked at all.`,
+    );
+  }
+  let tools;
+  try {
+    tools = JSON.parse(frame).result?.tools;
+  } catch (err) {
+    throw new ConfigFault(`tools/list from ${MCP_URL} was not JSON (${err.message})`);
+  }
+  if (!Array.isArray(tools)) {
+    throw new ConfigFault(
+      `tools/list from ${MCP_URL} carried no tools array — an error response or a protocol change, either way not a documentation finding`,
+    );
+  }
+  return tools;
+}
+
 async function api(path) {
   let res;
   try {
@@ -908,27 +972,15 @@ function captureChecks() {
       ["capture", "`create_note` has no `title`"],
     ],
     async () => {
-      const res = await fetch(MCP_URL, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${KEY}`,
-          "content-type": "application/json",
-          accept: "application/json, text/event-stream",
-        },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
-      });
-      assert(res.ok, `POST ${MCP_URL} tools/list -> ${res.status}`);
-      // The server answers as an SSE frame rather than a bare JSON body.
-      const body = await res.text();
-      const frame = body.startsWith("{")
-        ? body
-        : (body.split("\n").find((l) => l.startsWith("data: ")) ?? "").slice(6);
-      assert(frame, `tools/list returned no JSON payload from ${MCP_URL}`);
-      const tools = JSON.parse(frame).result?.tools;
-      assert(Array.isArray(tools), "tools/list returned no tools array");
+      const tools = await mcpTools();
       const props = (name) => {
         const t = tools.find((x) => x.name === name);
-        assertPopulated(t, `MCP tools/list (looking for ${name})`);
+        // A tool the skill names by name, gone: that IS a documentation finding,
+        // so it must not go out as a ConfigFault the way a transport failure does.
+        assert(
+          t,
+          `the MCP server no longer offers ${name} — the capture skill instructs the reader to call it`,
+        );
         return Object.keys(t.inputSchema?.properties ?? {});
       };
 
