@@ -49,6 +49,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # Before the suite, so it runs even when the checks step fails: the
+      # reporter is the thing that would otherwise have no execution until the
+      # first real failure needed it to work.
+      - name: Exercise the drift reporter against a stub board
+        run: node tests/report-drift.selftest.mjs
+
       - name: Check the skill against the spec and the live API
         id: checks
         env:

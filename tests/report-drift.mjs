@@ -59,10 +59,17 @@ async function api(path, init = {}) {
 // `details` is rejected, not truncated, above 2048 — and an unattended job that
 // trips that loses the whole report, not just the tail.
 const DETAILS_CAP = 2048;
-function fitDetails(text) {
-  if (text.length <= DETAILS_CAP) return text;
-  const marker = "\n\n… truncated; full detail in the GitHub issue.";
-  return text.slice(0, DETAILS_CAP - marker.length).replace(/\n[^\n]*$/, "") + marker;
+
+// Only the failure list is allowed to lose lines. Truncating the whole body cut
+// the issue link, the run link and the first-seen date — the things the text
+// tells the reader to go and use, and the date the next refresh reads back.
+function fitDetails(head, list, tail) {
+  const join = (l) => [...head, ...l, ...tail].join("\n");
+  if (join(list).length <= DETAILS_CAP) return join(list);
+  const marker = "- … and more; the full list is in the GitHub issue.";
+  let kept = [...list];
+  while (kept.length && join([...kept, marker]).length > DETAILS_CAP) kept.pop();
+  return join([...kept, marker]);
 }
 
 function buildDetails({ firstSeen }) {
@@ -72,14 +79,12 @@ function buildDetails({ firstSeen }) {
       : `The weekly conformance run found ${failures.length} claim${failures.length === 1 ? "" : "s"} in the public NOAN skill that the live API no longer supports.`;
   const guidance =
     KIND === "config"
-      ? "Nothing here says the documentation is wrong. The key behind NOAN_API_KEY, or the workspace behind it, cannot answer what these checks read — a read-only key on a populated workspace, with no stack restriction, is what they need."
+      ? "Nothing here says the documentation is wrong. Usual causes, in order: the NOAN_API_KEY secret (revoked, rotated, or scoped away), the workspace behind it being empty, the API unreachable or rate limited, or the published spec not fetching. The checks want a read-only key on a populated workspace with no stack restriction."
       : "Each check names the claim and the file that makes it. Fix the documentation rather than the check, unless the claim was only reworded — then update its anchor.";
   return fitDetails(
+    [lead, "", KIND === "config" ? "Blocked checks:" : "Failing checks:"],
+    failures.map((f) => `- ${f}`),
     [
-      lead,
-      "",
-      KIND === "config" ? "Blocked checks:" : "Failing checks:",
-      ...failures.map((f) => `- ${f}`),
       "",
       guidance,
       "",
@@ -87,10 +92,7 @@ function buildDetails({ firstSeen }) {
       runUrl ? `Run: ${runUrl}` : null,
       "",
       `First seen ${firstSeen}. Last seen ${today}.`,
-    ]
-      // Only the optional lines drop out; the empty strings are deliberate spacing.
-      .filter((l) => l !== null)
-      .join("\n"),
+    ].filter((l) => l !== null),
   );
 }
 
@@ -99,11 +101,15 @@ function buildDetails({ firstSeen }) {
 async function findOpenDriftTask() {
   const seen = new Map();
   let reported = 0;
-  for (let page = 1; page <= 20; page++) {
-    const body = await api(`/tasks?status=backlog&page=${page}&per_page=100`);
-    reported = body.meta?.totalItems ?? reported;
-    for (const t of body.items ?? []) seen.set(t.id, t);
-    if (!body.meta?.hasNext) break;
+  // Both columns, because the week someone picks the task up is the week they
+  // would otherwise get a second one filed beside it.
+  for (const status of ["backlog", "in-progress"]) {
+    for (let page = 1; page <= 20; page++) {
+      const body = await api(`/tasks?status=${status}&page=${page}&per_page=100`);
+      reported += body.meta?.totalItems ?? 0;
+      for (const t of body.items ?? []) seen.set(t.id, t);
+      if (!body.meta?.hasNext) break;
+    }
   }
   // A key whose scope excludes tasks does not always 403 — some endpoints
   // answer 200 with an empty list, which is indistinguishable from an empty
@@ -114,8 +120,10 @@ async function findOpenDriftTask() {
       "GET /tasks returned an entirely empty board. That is far more likely to be a key without task read access than a genuinely empty board — an out-of-scope read can come back 200 with no items rather than 403. Refusing to file, because dedupe cannot work: widen NOAN_TASK_API_KEY to read tasks (a NOAN UI action), then re-run.",
     );
   }
+  // Open, not "in a particular column": status says who is waiting, completed
+  // says whether the work is done, and they are independent fields.
   return [...seen.values()].find(
-    (t) => !t.completed && t.status === "backlog" && (t.title ?? "").startsWith(TITLE_PREFIX),
+    (t) => !t.completed && (t.title ?? "").startsWith(TITLE_PREFIX),
   );
 }
 
@@ -124,11 +132,11 @@ const assignee = me?.identity?.id;
 if (!assignee) throw new Error("GET /me returned no identity — cannot assign the task");
 
 const existing = await findOpenDriftTask();
-const plural = failures.length === 1;
+const singular = failures.length === 1;
 const title =
   KIND === "config"
     ? `${TITLE_PREFIX} the conformance suite cannot check the public skill`
-    : `${TITLE_PREFIX} ${failures.length} claim${plural ? "" : "s"} in the public skill no longer hold${plural ? "s" : ""}`;
+    : `${TITLE_PREFIX} ${failures.length} claim${singular ? "" : "s"} in the public skill no longer hold${singular ? "s" : ""}`;
 
 if (DRY_RUN) {
   console.log(existing ? `Would UPDATE task ${existing.id}` : "Would CREATE a task");
