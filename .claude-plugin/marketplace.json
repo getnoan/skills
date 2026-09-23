@@ -1,5 +1,6 @@
 {
   "name": "noan-skills",
+  "description": "Open Agent Skills for building on NOAN — ground any agent, any model, in your company's verified facts.",
   "owner": {
     "name": "NOAN",
     "email": "hello@getnoan.com",
@@ -9,11 +10,11 @@
     {
       "name": "noan",
       "source": "./",
-      "description": "Ground any agent in your company's verified facts via the NOAN API — read facts, contacts, notes, and tasks; write back with human confirmation.",
+      "description": "Ground any agent in your company's verified facts via the NOAN API — read facts, contacts, notes, and tasks; write back with human confirmation; and capture durable business facts for review as they surface.",
       "author": { "name": "NOAN", "url": "https://getnoan.com" },
       "homepage": "https://getnoan.com/agents",
       "license": "MIT",
-      "keywords": ["noan", "facts", "grounding", "crm", "tasks", "api"]
+      "keywords": ["noan", "facts", "grounding", "crm", "tasks", "api", "capture", "fact-layer"]
     }
   ]
 }

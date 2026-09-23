@@ -23,9 +23,14 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SKILL_DIR = join(ROOT, "skills", "noan-fact-layer");
+const CAPTURE_DIR = join(ROOT, "skills", "noan-fact-candidate-capture");
 const BASE = process.env.NOAN_API_BASE ?? "https://api.getnoan.com/v1";
 const SPEC_URL =
   process.env.NOAN_OPENAPI_URL ?? "https://api.getnoan.com/openapi.json";
+// The capture skill documents the MCP tool surface as well as the REST one, and
+// the two disagree in ways that decide whether a capture is ever found. The spec
+// says nothing about MCP, so that half can only be checked live.
+const MCP_URL = process.env.NOAN_MCP_URL ?? "https://mcp.getnoan.com/mcp";
 const KEY = process.env.NOAN_API_KEY ?? process.env.NOAN_PERSONAL_API_KEY ?? "";
 // Set by CI on every event that is meant to reach the API. Without it, a
 // rotated or revoked secret would leave the weekly backstop reporting success
@@ -37,6 +42,7 @@ const FILES = {
   writing: join(SKILL_DIR, "references", "writing-facts.md"),
   first: join(SKILL_DIR, "references", "first-connect.md"),
   interview: join(SKILL_DIR, "references", "interview.md"),
+  capture: join(CAPTURE_DIR, "SKILL.md"),
 };
 
 const text = Object.fromEntries(
@@ -522,6 +528,70 @@ function cadenceCheck() {
 
 // ---------------------------------------------------------------- live checks
 
+// The MCP server is a SECOND external service this suite depends on: the capture
+// skill documents a tool surface the OpenAPI spec knows nothing about, so the
+// only way to check those claims is to ask the server. Same classification rule
+// as api() below — the key, the network and an outage say nothing about the
+// documentation, and reporting them as drift would file an issue, and a task for
+// a person, because a service was down.
+async function mcpTools() {
+  let res;
+  try {
+    res = await fetch(MCP_URL, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${KEY}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    });
+  } catch (err) {
+    throw new ConfigFault(
+      `POST ${MCP_URL} tools/list could not be reached (${err.message}). That is the network or the MCP server being down, not the documentation being wrong.`,
+    );
+  }
+  if (!res.ok) {
+    if ([401, 403, 429].includes(res.status) || res.status >= 500) {
+      const why =
+        res.status === 401 || res.status === 403
+          ? "Check the key — revoked, rotated, or not entitled to the MCP server."
+          : res.status === 429
+            ? "Rate limited; retry later."
+            : "The MCP server is returning errors; retry later.";
+      throw new ConfigFault(
+        `POST ${MCP_URL} tools/list -> ${res.status}: the key or the server, not the documentation. ${why}`,
+      );
+    }
+    // 404 and 400 are the drift shapes: the endpoint moved, or it no longer
+    // accepts the call the skill's instructions rest on.
+    throw new Error(`POST ${MCP_URL} tools/list -> ${res.status}`);
+  }
+  // The server answers as an SSE frame rather than a bare JSON body. A payload
+  // this cannot read is the transport changing, not a claim being wrong.
+  const body = await res.text();
+  const frame = body.startsWith("{")
+    ? body
+    : (body.split("\n").find((l) => l.startsWith("data: ")) ?? "").slice(6);
+  if (!frame) {
+    throw new ConfigFault(
+      `tools/list returned no JSON payload from ${MCP_URL} — the transport changed shape, so the tool claims could not be checked at all.`,
+    );
+  }
+  let tools;
+  try {
+    tools = JSON.parse(frame).result?.tools;
+  } catch (err) {
+    throw new ConfigFault(`tools/list from ${MCP_URL} was not JSON (${err.message})`);
+  }
+  if (!Array.isArray(tools)) {
+    throw new ConfigFault(
+      `tools/list from ${MCP_URL} carried no tools array — an error response or a protocol change, either way not a documentation finding`,
+    );
+  }
+  return tools;
+}
+
 async function api(path) {
   let res;
   try {
@@ -833,10 +903,112 @@ function liveChecks() {
   );
 }
 
+
+// ------------------------------------------------- capture skill (spec + MCP)
+//
+// The capture skill's claims fail differently from the fact-layer skill's. A
+// wrong number there produces a rejected write and an error someone reads; a
+// wrong number HERE produces a capture that is written, accepted, and then
+// never found — the queue is read by title prefix and status, so a task that
+// misses either is dropped with nothing in the weekly report to say so.
+//
+// Until these existed the four load-bearing claims were unchecked: the suite
+// read only skills/noan-fact-layer, so setting the caps to 4096, 512 and
+// 50,000 and the status to "todo" still passed 13/13 (@noanneal, 2026-09-21).
+function captureChecks() {
+  check(
+    "the capture skill's length limits still match the spec",
+    [
+      ["capture", "Titles cap at **256 characters**"],
+      ["capture", "caps at **2048 characters**"],
+      ["capture", "`content` caps at 25,000 characters"],
+    ],
+    () => {
+      const max = (schema, field) =>
+        spec.components.schemas[schema]?.properties?.[field]?.maxLength;
+      const seen = [];
+      for (const [schema, field, want] of [
+        ["CreateTaskRequest", "title", 256],
+        ["CreateTaskRequest", "details", 2048],
+        ["CreateNoteRequest", "content", 25000],
+      ]) {
+        const got = max(schema, field);
+        assert(
+          got !== undefined,
+          `${schema}.${field} no longer declares maxLength, so the skill's "${want}" is unverifiable — these are rejected outright, not truncated, so an agent sizes its writes against them`,
+        );
+        assert(got === want, `${schema}.${field} maxLength is ${got}, the skill says ${want}`);
+        seen.push(`${field}=${got}`);
+      }
+      return seen.join(", ");
+    },
+  );
+
+  check(
+    "backlog is still the status a capture is written to",
+    [["capture", '**`status` is `"backlog"`.**']],
+    () => {
+      const values = spec.components.schemas.CreateTaskRequest?.properties?.status?.enum;
+      assert(
+        Array.isArray(values),
+        "CreateTaskRequest.status no longer declares an enum — the capture queue is read with ?status=backlog, so a renamed column empties it silently",
+      );
+      assert(
+        values.includes("backlog"),
+        `CreateTaskRequest.status is now ${values.join("|")} — "backlog" is gone, and every capture written to it is invisible to the weekly review`,
+      );
+      return `status enum: ${values.join(" | ")}`;
+    },
+  );
+
+  // The two MCP shapes the skill warns about. Both were WRONG in this skill
+  // before review: it claimed the conventions were enforced server-side, when
+  // create_task cannot even take a status and create_note cannot take a title.
+  // If the server ever grows them, this check fails and the warnings should go.
+  liveCheck(
+    "the MCP capture caveats still hold",
+    [
+      ["capture", "`create_task` has no `status`"],
+      ["capture", "`create_note` has no `title`"],
+    ],
+    async () => {
+      const tools = await mcpTools();
+      const props = (name) => {
+        const t = tools.find((x) => x.name === name);
+        // A tool the skill names by name, gone: that IS a documentation finding,
+        // so it must not go out as a ConfigFault the way a transport failure does.
+        assert(
+          t,
+          `the MCP server no longer offers ${name} — the capture skill instructs the reader to call it`,
+        );
+        return Object.keys(t.inputSchema?.properties ?? {});
+      };
+
+      const task = props("create_task");
+      assert(
+        !task.includes("status"),
+        'create_task now takes "status" — the skill tells the reader to pass column: "Backlog" instead, and that instruction is now the wrong one',
+      );
+      assert(
+        task.includes("column"),
+        `create_task no longer takes "column" (${task.join(", ")}) — the skill's only way to put a capture in the queue on this path is gone`,
+      );
+
+      const note = props("create_note");
+      assert(
+        !note.includes("title"),
+        'create_note now takes "title" — the skill says the title is not yours to set and puts the prefix on the first line of the content instead',
+      );
+      return `create_task: ${task.join(", ")} · create_note: ${note.join(", ")}`;
+    },
+  );
+}
+
 // ---------------------------------------------------------------------- main
 
 await loadSpec();
 specChecks();
+captureChecks();
 cadenceCheck();
 liveChecks();
 
