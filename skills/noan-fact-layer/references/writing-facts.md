@@ -235,9 +235,9 @@ afterwards — there is no update route for either.
 
 **Know what a description can and cannot do.** Reads return one:
 `GET /stacks` gives `{id, slug, title, description, managed, inUse, blocks}`,
-its nested blocks give `{id, slug, description, managed}` — no title, so a
-nested block still has to be resolved through `GET /blocks` to be named — and
-`GET /blocks` gives `{id, slug, title, description, managed, stack}`.
+its nested blocks give `{id, slug, title, description, managed}` — enough to
+name a block without a second call — and `GET /blocks` gives
+`{id, slug, title, description, managed, stack}`.
 A create response carries it too: `POST /stacks` returns the description
 on the stack and on each nested block.
 
