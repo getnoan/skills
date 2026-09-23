@@ -642,7 +642,7 @@ function liveChecks() {
       const nested = item.blocks?.[0];
       if (nested) {
         assert(
-          sameSet(Object.keys(nested), ["id", "slug", "description", "managed"]),
+          sameSet(Object.keys(nested), ["id", "slug", "title", "description", "managed"]),
           `nested block keys are now {${Object.keys(nested).sort().join(", ")}}`,
         );
       }
