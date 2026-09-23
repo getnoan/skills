@@ -233,21 +233,17 @@ roughly right did.
 Every stack and block gets a description, written on create and never
 afterwards — there is no update route for either.
 
-**Know what a description can and cannot do.** Reads return one now:
+**Know what a description can and cannot do.** Reads return one:
 `GET /stacks` gives `{id, slug, title, description, managed, inUse, blocks}`,
 its nested blocks give `{id, slug, description, managed}` — no title, so a
 nested block still has to be resolved through `GET /blocks` to be named — and
 `GET /blocks` gives `{id, slug, title, description, managed, stack}`.
-A create response still carries it too: `POST /stacks` returns the description
-on the stack and on each nested block. Until
-September 2026 no read endpoint returned a description at all, and this file
-said so — if you are working from an older copy of this guidance, that is the
-line that changed.
+A create response carries it too: `POST /stacks` returns the description
+on the stack and on each nested block.
 
-What has not changed is that a description is written once, on create, and
-never afterwards: there is still no update route for a stack or a block. So it
-is a label on the container, fixed at birth, while the fact inside it is
-versioned and rewritable. An agent grounding over the API still routes on
+But a description is written once, on create, and never afterwards: there is no
+update route for a stack or a block. So it is a label on the container, fixed at
+birth, while the fact inside it is versioned and rewritable. An agent grounding over the API still routes on
 **titles** and on the **content of the facts themselves** — anything a later
 reader must know belongs in the fact, not in the description around it, because
 the description is the one part of the workspace nobody can correct.

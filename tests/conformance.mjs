@@ -204,7 +204,7 @@ function specChecks() {
   check(
     "descriptions are returned by the read schemas",
     [
-      ["writing", "Reads return one now"],
+      ["writing", "Reads return one:"],
       [
         "skill",
         "descriptions (required on create, returned on reads, and never updatable)",
