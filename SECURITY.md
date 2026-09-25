@@ -4,7 +4,7 @@
 
 Please report security issues privately rather than opening a public issue:
 use **Report a vulnerability** on this repository's Security tab, or email
-**security@getnoan.com** with enough detail to reproduce. We will acknowledge
+**<security@getnoan.com>** with enough detail to reproduce. We will acknowledge
 receipt and keep you updated while we work on a fix.
 
 ## What this repository contains
