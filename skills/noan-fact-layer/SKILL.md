@@ -1,8 +1,9 @@
 ---
 name: noan-fact-layer
 description: >-
-  Read and write verified company facts through the NOAN API (the fact layer for
-  agentic business). Use this whenever a task needs grounded company truth —
+  Read and write verified company facts through the NOAN API or the NOAN
+  connector (MCP) in Claude, ChatGPT and other chat apps — the fact layer for
+  agentic business. Use this whenever a task needs grounded company truth —
   strategy, positioning, ICP, product, pricing, metrics, team, contacts — instead
   of guessing or relying on general knowledge. Also use to record a new fact,
   contact, note, or task back into NOAN. Trigger on mentions of NOAN, "our facts",
@@ -40,6 +41,23 @@ installed as a single file can be months old and nothing updates it.
 If a response contradicts something here — a field that now exists, a limit that
 has moved, an endpoint that answers differently — trust the response, carry on,
 and tell the user which part of the skill is stale.
+
+## Connector or key — check which route you are on
+
+NOAN reaches an agent one of two ways, and the rest of this file assumes the
+second:
+
+- **NOAN tools are in your tool list** (`get_me`, `search_knowledge`,
+  `list_facts`, `create_fact` …). You are on the **connector route** — Claude,
+  ChatGPT and other chat apps, or any assistant with the NOAN MCP server
+  connected. The user signed in when they connected it, so there is no key to
+  find: skip Auth below, never ask for a key, never send the user to a
+  terminal. Read `references/connector.md` (or fetch
+  <https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/connector.md>
+  if this skill was installed as a single file) for how each call below maps to
+  a tool and where the tools differ, then follow the rest of this file for what
+  to do.
+- **No NOAN tools, but you can make HTTP calls** — the **REST route** below.
 
 ## Auth
 
@@ -96,6 +114,8 @@ curl -s https://api.getnoan.com/v1/me -H "Authorization: Bearer $NOAN_API_KEY"
 ## Before grounding — check workspace state
 
 After auth succeeds, check `GET /facts?per_page=1` and read `meta.totalItems`.
+(On the connector route there is no count; `connector.md` says what to read
+instead.)
 
 - **Fewer than ~10 facts** → this is a new or empty workspace. Do not attempt
   to ground a task against an empty fact layer ("no facts found" is useless to
