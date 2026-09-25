@@ -24,6 +24,12 @@ npx -y @getnoan/wizard@latest
 A coding assistant can run it too, without prompts: `NOAN_API_KEY=… npx -y @getnoan/wizard@latest --yes --json`.
 Source and options: [getnoan/wizard](https://github.com/getnoan/wizard).
 
+**Claude, ChatGPT and other chat apps:** no key and no terminal. Add NOAN as a connector in
+the app — address `https://mcp.getnoan.com/mcp`, then sign in with your NOAN account — and give
+the app this skill wherever it takes skills or project instructions. The skill notices it is
+connected through tools and follows [`references/connector.md`](skills/noan-fact-layer/references/connector.md);
+your Google Drive or Notion connectors in the same app are how it reads your existing documents.
+
 **Just the skills, any agent:**
 
 ```bash
@@ -58,7 +64,7 @@ directly instead of installing the plugin, or disable the plugin with `/plugin`
 
 ## Setup
 
-The skill authenticates with an API key from your NOAN workspace ([app.getnoan.com](https://app.getnoan.com) → create an API key; every plan includes unlimited keys):
+On the connector route above, signing in is the whole setup. Everywhere else, the skill authenticates with an API key from your NOAN workspace ([app.getnoan.com](https://app.getnoan.com) → create an API key; every plan includes unlimited keys):
 
 ```bash
 export NOAN_API_KEY=...
