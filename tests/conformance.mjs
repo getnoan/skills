@@ -1070,7 +1070,7 @@ function connectorChecks() {
     "every tool connector.md names exists",
     [["connector", "Which tool does what"]],
     async () => {
-      const tools = new Set((await mcpTools()).map((t) => t.name));
+      const { find, scopes } = await mcpSurface();
       // Backticked snake_case words are tool names; the few that are parameters
       // or values are listed so the sweep stays strict about everything else.
       const notTools = new Set(["block_slug", "per_page"]);
@@ -1081,12 +1081,15 @@ function connectorChecks() {
             .filter((n) => !notTools.has(n)),
         ),
       ];
-      const missing = named.filter((n) => !tools.has(n));
-      assert(
-        !missing.length,
-        `connector.md tells the reader to call ${missing.join(", ")}, which the MCP server does not offer`,
-      );
-      return `${named.length} named tools, all offered`;
+      // find() throws drift for a tool missing under a full-scope key; under a
+      // narrower one it returns null, and the tool is hidden rather than gone.
+      const hidden = named.filter((n) => !find(n));
+      if (hidden.length === named.length) {
+        throw new Unchecked(`every tool connector.md names is hidden from this key (scopes ${JSON.stringify(scopes)})`);
+      }
+      return hidden.length
+        ? `${named.length - hidden.length} of ${named.length} named tools offered; ${hidden.length} hidden from this key's scope, not checked: ${hidden.join(", ")}`
+        : `${named.length} named tools, all offered`;
     },
   );
 
@@ -1099,7 +1102,14 @@ function connectorChecks() {
       ["connector", "There is no\n  `externalId` on this route"],
     ],
     async () => {
-      const tools = await mcpTools();
+      const { tools, fullScope, scopes } = await mcpSurface();
+      // Every claim here is an ABSENCE, and a narrower key hides tools — so
+      // "not in the list" proves nothing unless this key can see everything.
+      if (!fullScope) {
+        throw new Unchecked(
+          `these are claims that tools do NOT exist, which only a full-scope key can check (this key: ${JSON.stringify(scopes)})`,
+        );
+      }
       const names = tools.map((t) => t.name);
       const structural = names.filter((n) =>
         /^(create|add|use|enable)_.*(stack|block)/.test(n),
@@ -1137,18 +1147,20 @@ function connectorChecks() {
       ["connector", "`list_stacks` (`inUseOnly` defaults to `true`)"],
     ],
     async () => {
-      const tools = await mcpTools();
-      const schema = (name) => {
-        const t = tools.find((x) => x.name === name);
-        assert(t, `the MCP server no longer offers ${name}`);
-        return t.inputSchema?.properties ?? {};
-      };
+      const { find } = await mcpSurface();
+      const schema = (name) => find(name)?.inputSchema?.properties ?? null;
       const fact = schema("create_fact");
-      assert(
-        fact.content?.maxLength === 20000,
-        `create_fact content maxLength is now ${fact.content?.maxLength} — connector.md says 20,000`,
-      );
+      if (fact) {
+        assert(
+          fact.content?.maxLength === 20000,
+          `create_fact content maxLength is now ${fact.content?.maxLength} — connector.md says 20,000`,
+        );
+      }
       const list = schema("list_facts");
+      const stacks = schema("list_stacks");
+      if (!list || !stacks) {
+        throw new Unchecked("list_facts or list_stacks is hidden from this key's scope");
+      }
       assert(
         list.limit?.default === 50 && list.limit?.maximum === 200,
         `list_facts limit is now default ${list.limit?.default}, max ${list.limit?.maximum} — connector.md says 50 and 200`,
@@ -1158,12 +1170,11 @@ function connectorChecks() {
         !paging.length,
         `list_facts now pages (${paging.join(", ")}) — connector.md tells the reader to batch block slugs instead`,
       );
-      const stacks = schema("list_stacks");
       assert(
         stacks.inUseOnly?.default === true,
         `list_stacks inUseOnly default is now ${stacks.inUseOnly?.default}`,
       );
-      return "create_fact 20000 · list_facts 50/200, no paging · list_stacks inUseOnly=true";
+      return `${fact ? "create_fact 20000" : "create_fact hidden from this key, not checked"} · list_facts 50/200, no paging · list_stacks inUseOnly=true`;
     },
   );
 }

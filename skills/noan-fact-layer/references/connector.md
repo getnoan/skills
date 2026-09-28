@@ -23,6 +23,10 @@ The sign-in was the auth. There is no key on this route and none is needed:
   in, the `identity` your writes are attributed to, and `scopes` — what this
   sign-in may do. A write the scopes don't cover is a boundary, the same as a
   `403` on the REST route: stop, don't work around it.
+- The tool list is cut to what the sign-in may do. If the read tools are
+  there but `create_fact`, `create_task` and the other writes are not, this is
+  a read-only connection — tell the user writes need their NOAN access
+  widened, instead of saying the feature doesn't exist.
 - If the NOAN tools are missing or every call fails to authenticate, the
   connector is not connected or not switched on in this conversation. Say so
   and point the user to <https://www.getnoan.com> for the setup guide; don't
