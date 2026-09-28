@@ -66,6 +66,14 @@ const record = (name, ok, detail, kind = "doc") =>
 // sends someone to edit a file that was never wrong.
 class ConfigFault extends Error {}
 
+// Neither pass nor fail: the claim is real, but THIS key is not allowed to see
+// what it is about. The MCP server hides every tool a key's scope does not cover,
+// and the suite's key is deliberately read-only — so to it, create_task is simply
+// absent. Reporting that as drift filed getnoan/skills#18 against a skill that was
+// right; reporting it as a configuration fault would file one every week for a
+// key that is scoped exactly as intended. It is printed as SKIP and fails nothing.
+class Unchecked extends Error {}
+
 function anchorsPresent(name, anchors) {
   const missing = anchors.filter(
     ([file, quote]) => !flat[file].includes(quote.replace(/\s+/g, " ")),
@@ -107,6 +115,10 @@ async function runRegistry({ runLive }) {
     try {
       record(c.name, true, await c.fn());
     } catch (err) {
+      if (err instanceof Unchecked) {
+        record(c.name, true, err.message, "unchecked");
+        continue;
+      }
       record(
         c.name,
         false,
@@ -536,6 +548,10 @@ function cadenceCheck() {
 // documentation, and reporting them as drift would file an issue, and a task for
 // a person, because a service was down.
 async function mcpTools() {
+  return (await mcpRpc("tools/list")).tools;
+}
+
+async function mcpRpc(method, params = {}) {
   let res;
   try {
     res = await fetch(MCP_URL, {
@@ -545,11 +561,11 @@ async function mcpTools() {
         "content-type": "application/json",
         accept: "application/json, text/event-stream",
       },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     });
   } catch (err) {
     throw new ConfigFault(
-      `POST ${MCP_URL} tools/list could not be reached (${err.message}). That is the network or the MCP server being down, not the documentation being wrong.`,
+      `POST ${MCP_URL} ${method} could not be reached (${err.message}). That is the network or the MCP server being down, not the documentation being wrong.`,
     );
   }
   if (!res.ok) {
@@ -561,12 +577,12 @@ async function mcpTools() {
             ? "Rate limited; retry later."
             : "The MCP server is returning errors; retry later.";
       throw new ConfigFault(
-        `POST ${MCP_URL} tools/list -> ${res.status}: the key or the server, not the documentation. ${why}`,
+        `POST ${MCP_URL} ${method} -> ${res.status}: the key or the server, not the documentation. ${why}`,
       );
     }
     // 404 and 400 are the drift shapes: the endpoint moved, or it no longer
     // accepts the call the skill's instructions rest on.
-    throw new Error(`POST ${MCP_URL} tools/list -> ${res.status}`);
+    throw new Error(`POST ${MCP_URL} ${method} -> ${res.status}`);
   }
   // The server answers as an SSE frame rather than a bare JSON body. A payload
   // this cannot read is the transport changing, not a claim being wrong.
@@ -576,21 +592,56 @@ async function mcpTools() {
     : (body.split("\n").find((l) => l.startsWith("data: ")) ?? "").slice(6);
   if (!frame) {
     throw new ConfigFault(
-      `tools/list returned no JSON payload from ${MCP_URL} — the transport changed shape, so the tool claims could not be checked at all.`,
+      `${method} returned no JSON payload from ${MCP_URL} — the transport changed shape, so the tool claims could not be checked at all.`,
     );
   }
-  let tools;
+  let result;
   try {
-    tools = JSON.parse(frame).result?.tools;
+    result = JSON.parse(frame).result;
   } catch (err) {
-    throw new ConfigFault(`tools/list from ${MCP_URL} was not JSON (${err.message})`);
+    throw new ConfigFault(`${method} from ${MCP_URL} was not JSON (${err.message})`);
   }
-  if (!Array.isArray(tools)) {
+  if (method === "tools/list" && !Array.isArray(result?.tools)) {
     throw new ConfigFault(
       `tools/list from ${MCP_URL} carried no tools array — an error response or a protocol change, either way not a documentation finding`,
     );
   }
-  return tools;
+  if (!result) {
+    throw new ConfigFault(`${method} from ${MCP_URL} carried no result`);
+  }
+  return result;
+}
+
+// The tools this key can see, and whether it can see ALL of them. The server
+// lists only what a key's scope covers, so a documented tool missing from the
+// list is drift only when the scope is everything (`get_me` reports ["*"]).
+// Under any narrower scope, missing means hidden, and the claim is unchecked.
+async function mcpSurface() {
+  const tools = await mcpTools();
+  let scopes;
+  try {
+    const me = await mcpRpc("tools/call", { name: "get_me", arguments: {} });
+    scopes =
+      me.structuredContent?.scopes ??
+      JSON.parse(me.content?.[0]?.text ?? "{}").scopes;
+  } catch (err) {
+    if (err instanceof ConfigFault) throw err;
+    throw new ConfigFault(`get_me over MCP did not return scopes (${err.message})`);
+  }
+  if (!Array.isArray(scopes)) {
+    throw new ConfigFault(
+      "get_me over MCP returned no scopes array, so a missing tool cannot be told apart from a hidden one",
+    );
+  }
+  const fullScope = scopes.includes("*");
+  // Look a documented tool up. Missing under a full scope is drift (the Error
+  // path); missing under a narrower one returns null for the caller to skip.
+  const find = (name) => {
+    const t = tools.find((x) => x.name === name);
+    if (t || !fullScope) return t ?? null;
+    throw new Error(`the MCP server no longer offers ${name}, and this key can see every tool`);
+  };
+  return { tools, scopes, fullScope, find };
 }
 
 async function api(path) {
@@ -973,17 +1024,17 @@ function captureChecks() {
       ["capture", "`create_note` has no `title`"],
     ],
     async () => {
-      const tools = await mcpTools();
-      const props = (name) => {
-        const t = tools.find((x) => x.name === name);
-        // A tool the skill names by name, gone: that IS a documentation finding,
-        // so it must not go out as a ConfigFault the way a transport failure does.
-        assert(
-          t,
-          `the MCP server no longer offers ${name} — the capture skill instructs the reader to call it`,
+      const { find, scopes } = await mcpSurface();
+      // A tool the skill names by name, gone under a full-scope key: that IS a
+      // documentation finding (mcpSurface throws it as drift). Hidden from a
+      // narrower key, it is a claim this run cannot check — say so, don't fail.
+      const hidden = ["create_task", "create_note"].filter((n) => !find(n));
+      if (hidden.length) {
+        throw new Unchecked(
+          `${hidden.join(" and ")} hidden from this key (scopes ${JSON.stringify(scopes)}) — the MCP server lists only tools a key may use, so these caveats need a write-scoped key to check`,
         );
-        return Object.keys(t.inputSchema?.properties ?? {});
-      };
+      }
+      const props = (name) => Object.keys(find(name).inputSchema?.properties ?? {});
 
       const task = props("create_task");
       assert(
@@ -1143,12 +1194,17 @@ if (!KEY && REQUIRE_LIVE) {
 
 function finish() {
   const failed = results.filter((r) => !r.ok);
+  const unchecked = results.filter((r) => r.kind === "unchecked");
   for (const r of results) {
-    console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.name}`);
+    const tag = r.kind === "unchecked" ? "SKIP" : r.ok ? "PASS" : "FAIL";
+    console.log(`${tag}  ${r.name}`);
     if (r.detail) console.log(`      ${r.detail}`);
   }
   console.log(
-    `\n${results.length - failed.length}/${results.length} checks passed${KEY ? "" : " (spec only)"}.`,
+    `\n${results.length - failed.length - unchecked.length}/${results.length} checks passed${KEY ? "" : " (spec only)"}` +
+      (unchecked.length
+        ? `, ${unchecked.length} not checkable with this key's scope (SKIP above).`
+        : "."),
   );
   // Exit 1 is drift: the skill says something the API no longer does. Exit 2 is a
   // configuration fault: the suite could not check, because of the key's scope or
