@@ -42,6 +42,7 @@ const FILES = {
   writing: join(SKILL_DIR, "references", "writing-facts.md"),
   first: join(SKILL_DIR, "references", "first-connect.md"),
   interview: join(SKILL_DIR, "references", "interview.md"),
+  connector: join(SKILL_DIR, "references", "connector.md"),
   capture: join(CAPTURE_DIR, "SKILL.md"),
 };
 
@@ -1055,11 +1056,135 @@ function captureChecks() {
   );
 }
 
+// ------------------------------------------------ connector route (MCP only)
+//
+// connector.md is what an agent in Claude, ChatGPT or any other chat app reads
+// instead of the REST half of SKILL.md. Every claim in it is about the MCP tool
+// surface, which the OpenAPI spec knows nothing about, so all of it is live.
+// The gaps it names (no stack or block creation, no comments, no fact history,
+// a 20,000 cap the REST route doesn't have) are the ones that change what the
+// agent must tell the user to do by hand; if the server closes one, the check
+// fails so the workaround can come out of the skill.
+function connectorChecks() {
+  liveCheck(
+    "every tool connector.md names exists",
+    [["connector", "Which tool does what"]],
+    async () => {
+      const { find, scopes } = await mcpSurface();
+      // Backticked snake_case words are tool names; the few that are parameters
+      // or values are listed so the sweep stays strict about everything else.
+      const notTools = new Set(["block_slug", "per_page"]);
+      const named = [
+        ...new Set(
+          [...text.connector.matchAll(/`([a-z]+(?:_[a-z]+)+)`/g)]
+            .map((m) => m[1])
+            .filter((n) => !notTools.has(n)),
+        ),
+      ];
+      // find() throws drift for a tool missing under a full-scope key; under a
+      // narrower one it returns null, and the tool is hidden rather than gone.
+      const hidden = named.filter((n) => !find(n));
+      if (hidden.length === named.length) {
+        throw new Unchecked(`every tool connector.md names is hidden from this key (scopes ${JSON.stringify(scopes)})`);
+      }
+      return hidden.length
+        ? `${named.length - hidden.length} of ${named.length} named tools offered; ${hidden.length} hidden from this key's scope, not checked: ${hidden.join(", ")}`
+        : `${named.length} named tools, all offered`;
+    },
+  );
+
+  liveCheck(
+    "the connector gaps connector.md works around are still gaps",
+    [
+      ["connector", "No tool creates or adopts stacks and blocks."],
+      ["connector", "There is no comment tool"],
+      ["connector", "There is no tool for a fact's versions."],
+      ["connector", "There is no\n  `externalId` on this route"],
+    ],
+    async () => {
+      const { tools, fullScope, scopes } = await mcpSurface();
+      // Every claim here is an ABSENCE, and a narrower key hides tools — so
+      // "not in the list" proves nothing unless this key can see everything.
+      if (!fullScope) {
+        throw new Unchecked(
+          `these are claims that tools do NOT exist, which only a full-scope key can check (this key: ${JSON.stringify(scopes)})`,
+        );
+      }
+      const names = tools.map((t) => t.name);
+      const structural = names.filter((n) =>
+        /^(create|add|use|enable)_.*(stack|block)/.test(n),
+      );
+      assert(
+        !structural.length,
+        `the MCP server now offers ${structural.join(", ")} — connector.md still tells the reader to have the user create stacks and blocks in the app`,
+      );
+      const comment = names.filter((n) => n.includes("comment"));
+      assert(
+        !comment.length,
+        `the MCP server now offers ${comment.join(", ")} — connector.md says progress has no home on a task`,
+      );
+      const versions = names.filter((n) => /version|history/.test(n) && /fact/.test(n));
+      assert(
+        !versions.length,
+        `the MCP server now offers ${versions.join(", ")} — connector.md says fact history is app-only`,
+      );
+      const task = tools.find((t) => t.name === "create_task");
+      assert(task, "the MCP server no longer offers create_task");
+      const taskProps = Object.keys(task.inputSchema?.properties ?? {});
+      assert(
+        !taskProps.includes("externalId"),
+        "create_task now takes externalId — connector.md tells the reader to dedupe by title instead",
+      );
+      return `${names.length} tools; no stack/block, comment or fact-history tool; create_task: ${taskProps.join(", ")}`;
+    },
+  );
+
+  liveCheck(
+    "connector limits connector.md states still hold",
+    [
+      ["connector", "`create_fact` caps `content` at 20,000 characters"],
+      ["connector", "returns at most `limit` facts (default 50, max 200), and it has no\npage or offset"],
+      ["connector", "`list_stacks` (`inUseOnly` defaults to `true`)"],
+    ],
+    async () => {
+      const { find } = await mcpSurface();
+      const schema = (name) => find(name)?.inputSchema?.properties ?? null;
+      const fact = schema("create_fact");
+      if (fact) {
+        assert(
+          fact.content?.maxLength === 20000,
+          `create_fact content maxLength is now ${fact.content?.maxLength} — connector.md says 20,000`,
+        );
+      }
+      const list = schema("list_facts");
+      const stacks = schema("list_stacks");
+      if (!list || !stacks) {
+        throw new Unchecked("list_facts or list_stacks is hidden from this key's scope");
+      }
+      assert(
+        list.limit?.default === 50 && list.limit?.maximum === 200,
+        `list_facts limit is now default ${list.limit?.default}, max ${list.limit?.maximum} — connector.md says 50 and 200`,
+      );
+      const paging = Object.keys(list).filter((k) => /page|offset|cursor|after/i.test(k));
+      assert(
+        !paging.length,
+        `list_facts now pages (${paging.join(", ")}) — connector.md tells the reader to batch block slugs instead`,
+      );
+      assert(
+        stacks.inUseOnly?.default === true,
+        `list_stacks inUseOnly default is now ${stacks.inUseOnly?.default}`,
+      );
+      return `${fact ? "create_fact 20000" : "create_fact hidden from this key, not checked"} · list_facts 50/200, no paging · list_stacks inUseOnly=true`;
+    },
+  );
+}
+
 // ---------------------------------------------------------------------- main
 
 await loadSpec();
 specChecks();
 captureChecks();
+connectorChecks();
 cadenceCheck();
 liveChecks();
 

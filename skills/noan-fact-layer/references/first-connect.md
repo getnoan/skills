@@ -7,6 +7,11 @@ it against a populated workspace — there, ground normally per SKILL.md.
 The goal: the first time the user opens the NOAN app, it is already full of
 their own verified truth. Never leave them staring at an empty workspace.
 
+**Connected through tools, not a key** (Claude, ChatGPT or another chat app)?
+The sequence is the same, but the connector cannot create stacks or blocks and
+reads the user's documents through the chat app's own connectors. Read the
+"First connect, on this route" section of `connector.md` alongside this one.
+
 ## Step 0 — Preflight, then stop
 
 Verify auth (`GET /me`). List existing stacks and blocks
@@ -34,7 +39,8 @@ Ask which of these exist, and offer to find what you can yourself:
 - **Repo** — README, docs/, architecture notes. If you are in a git repo,
   look before asking.
 - **Existing dumps** — Notion export, Google Docs, pitch deck, investor
-  update, brand guide. Ask the user to point at a folder.
+  update, brand guide. Ask the user to point at a folder — or, in a chat app,
+  at the Google Drive or Notion connector they already have switched on.
 - **Their head** — for whatever the above doesn't cover.
 
 Read what they give you. Do not gather third-party commentary about the

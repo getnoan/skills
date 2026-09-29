@@ -23,8 +23,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
-          # api.getnoan.com returns 401 without a key, that still proves the URL resolves
-          args: --no-progress --accept "200..=299,401,403" "./**/*.md"
+          # No 401/403 allowance. It was here for api.getnoan.com, which answers 401
+          # to every /v1 path without a key -- including ones that don't exist -- so
+          # it proved only that the host was up, and it let ANY link answering 401 or
+          # 403 pass. Every API URL in these docs is inside code, which lychee does not
+          # check; whether the API itself is up is the conformance suite's job.
+          #
+          # The skill links its own reference files by their raw URL on main, so a
+          # single-file install can fetch them. Checked as-is, a PR that ADDS a
+          # reference file fails here until it merges (the file is not on main yet),
+          # and a PR that DELETES one passes and breaks main. --remap checks those
+          # links against this checkout instead, which gets both cases right.
+          # Single quotes, not double: lychee-action runs these args through `eval`,
+          # which would expand `$1` to nothing inside double quotes.
+          args: >-
+            --no-progress
+            --remap '^https://raw\.githubusercontent\.com/getnoan/skills/main/(.*)$ file://${{ github.workspace }}/$1'
+            "./**/*.md"
           fail: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
