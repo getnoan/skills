@@ -444,6 +444,28 @@ function specChecks() {
   );
 
   check(
+    "a managed stack is added to the project through the API",
+    [
+      ["writing", "`POST /stacks/{stackId}/use` adds it, with no body"],
+      ["writing", "Writing a fact into one of its blocks adds the stack too"],
+      ["skill", "offer to add it with `POST /stacks/{stackId}/use`"],
+    ],
+    () => {
+      const op = spec.paths["/stacks/{stackId}/use"]?.post;
+      assert(op, "POST /stacks/{stackId}/use is gone: the skill offers it as the way to add a managed stack");
+      assert(
+        !op.requestBody,
+        "POST /stacks/{stackId}/use now takes a body: the skill says it takes none",
+      );
+      assert(
+        /creating a fact on a block also adds/i.test(op.description ?? ""),
+        "the spec no longer says writing a fact adds the block's stack: writing-facts.md relies on that",
+      );
+      return "present, no body; a fact write adds the stack";
+    },
+  );
+
+  check(
     "the API surface has not grown a route the skill does not mention",
     [["skill", "Base URL `https://api.getnoan.com/v1`"]],
     () => {
@@ -1013,15 +1035,14 @@ function captureChecks() {
     },
   );
 
-  // The two MCP shapes the skill warns about. Both were WRONG in this skill
-  // before review: it claimed the conventions were enforced server-side, when
-  // create_task cannot even take a status and create_note cannot take a title.
-  // If the server ever grows them, this check fails and the warnings should go.
+  // The two MCP shapes the skill warns about. create_task takes a column, not a
+  // status, and create_note's title is optional and shorter than the REST one.
+  // Both tools are writes, so a read-only key never sees them.
   liveCheck(
     "the MCP capture caveats still hold",
     [
       ["capture", "`create_task` has no `status`"],
-      ["capture", "`create_note` has no `title`"],
+      ["capture", "`create_note` takes a `title`, capped at 120 characters."],
     ],
     async () => {
       const { find, scopes } = await mcpSurface();
@@ -1034,7 +1055,8 @@ function captureChecks() {
           `${hidden.join(" and ")} hidden from this key (scopes ${JSON.stringify(scopes)}) — the MCP server lists only tools a key may use, so these caveats need a write-scoped key to check`,
         );
       }
-      const props = (name) => Object.keys(find(name).inputSchema?.properties ?? {});
+      const schema = (name) => find(name).inputSchema?.properties ?? {};
+      const props = (name) => Object.keys(schema(name));
 
       const task = props("create_task");
       assert(
@@ -1047,11 +1069,16 @@ function captureChecks() {
       );
 
       const note = props("create_note");
+      const title = schema("create_note").title;
       assert(
-        !note.includes("title"),
-        'create_note now takes "title" — the skill says the title is not yours to set and puts the prefix on the first line of the content instead',
+        title,
+        `create_note no longer takes "title" (${note.join(", ")}): the skill tells the reader to put the prefix there`,
       );
-      return `create_task: ${task.join(", ")} · create_note: ${note.join(", ")}`;
+      assert(
+        title.maxLength === 120,
+        `create_note title maxLength is now ${title.maxLength}, the skill says 120`,
+      );
+      return `create_task: ${task.join(", ")} · create_note: ${note.join(", ")} (title ≤120)`;
     },
   );
 }
@@ -1061,10 +1088,10 @@ function captureChecks() {
 // connector.md is what an agent in Claude, ChatGPT or any other chat app reads
 // instead of the REST half of SKILL.md. Every claim in it is about the MCP tool
 // surface, which the OpenAPI spec knows nothing about, so all of it is live.
-// The gaps it names (no stack or block creation, no comments, no fact history,
-// a 20,000 cap the REST route doesn't have) are the ones that change what the
-// agent must tell the user to do by hand; if the server closes one, the check
-// fails so the workaround can come out of the skill.
+// The gaps it names (no fact history, no externalId, a 20,000 cap the REST
+// route doesn't have) are the ones that change what the agent must work around;
+// if the server closes one, the check fails so the workaround can come out of
+// the skill.
 function connectorChecks() {
   liveCheck(
     "every tool connector.md names exists",
@@ -1096,8 +1123,6 @@ function connectorChecks() {
   liveCheck(
     "the connector gaps connector.md works around are still gaps",
     [
-      ["connector", "No tool creates or adopts stacks and blocks."],
-      ["connector", "There is no comment tool"],
       ["connector", "There is no tool for a fact's versions."],
       ["connector", "There is no\n  `externalId` on this route"],
     ],
@@ -1111,18 +1136,6 @@ function connectorChecks() {
         );
       }
       const names = tools.map((t) => t.name);
-      const structural = names.filter((n) =>
-        /^(create|add|use|enable)_.*(stack|block)/.test(n),
-      );
-      assert(
-        !structural.length,
-        `the MCP server now offers ${structural.join(", ")} — connector.md still tells the reader to have the user create stacks and blocks in the app`,
-      );
-      const comment = names.filter((n) => n.includes("comment"));
-      assert(
-        !comment.length,
-        `the MCP server now offers ${comment.join(", ")} — connector.md says progress has no home on a task`,
-      );
       const versions = names.filter((n) => /version|history/.test(n) && /fact/.test(n));
       assert(
         !versions.length,
@@ -1135,7 +1148,63 @@ function connectorChecks() {
         !taskProps.includes("externalId"),
         "create_task now takes externalId — connector.md tells the reader to dedupe by title instead",
       );
-      return `${names.length} tools; no stack/block, comment or fact-history tool; create_task: ${taskProps.join(", ")}`;
+      return `${names.length} tools; no fact-history tool; create_task: ${taskProps.join(", ")}`;
+    },
+  );
+
+  // These replaced "have the user create it in the app" and "there is no comment
+  // tool". All but list_facts are writes, so a read-only key checks only that one.
+  liveCheck(
+    "the block, stack and comment tools connector.md names take what it says",
+    [
+      ["connector", "`list_facts` takes `blockIds` and `create_fact` takes `blockId`"],
+      ["connector", "`use_stack` adds a managed stack to the project."],
+      ["connector", "`add_block` adds a block to a custom stack."],
+      ["connector", "with `created` set to `false`"],
+      ["connector", "Progress goes in `add_task_comment`"],
+    ],
+    async () => {
+      const { find, scopes } = await mcpSurface();
+      const required = (name) => find(name)?.inputSchema?.required ?? null;
+      const checked = [];
+
+      const list = find("list_facts")?.inputSchema?.properties;
+      if (list) {
+        assert(
+          list.blockIds && !list.blockSlugs,
+          `list_facts now takes ${Object.keys(list).join(", ")}: connector.md says blockIds`,
+        );
+        checked.push("list_facts blockIds");
+      }
+      const want = {
+        create_fact: ["blockId", "content"],
+        use_stack: ["stackId"],
+        create_stack: ["title", "description", "blocks"],
+        add_block: ["stackId", "title"],
+        add_task_comment: ["taskId", "content"],
+      };
+      for (const [name, fields] of Object.entries(want)) {
+        const got = required(name);
+        if (!got) continue;
+        assert(
+          sameSet(got, fields),
+          `${name} now requires ${got.join(", ")}: connector.md describes it as taking ${fields.join(", ")}`,
+        );
+        checked.push(name);
+      }
+      for (const name of ["create_stack", "add_block"]) {
+        const tool = find(name);
+        if (!tool) continue;
+        assert(
+          /created/.test(tool.description ?? ""),
+          `${name}'s description no longer says a same-title repeat comes back with created false: connector.md relies on it`,
+        );
+      }
+      if (!checked.length) {
+        throw new Unchecked(`every tool this check reads is hidden from this key (scopes ${JSON.stringify(scopes)})`);
+      }
+      const hidden = ["list_facts", ...Object.keys(want)].filter((n) => !find(n));
+      return `${checked.join(", ")}${hidden.length ? `; hidden from this key, not checked: ${hidden.join(", ")}` : ""}`;
     },
   );
 

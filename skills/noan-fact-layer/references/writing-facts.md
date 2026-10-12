@@ -76,12 +76,12 @@ in this project's map are different things: `Growth` and `Recruiting` are often
 absent from the map even though the table sends Goals and hiring to them, and
 then `GET /blocks?in_use_only=true` returns none of those blocks. Check with the
 filter on before concluding anything — and when a home exists in the catalogue
-but not in this project, **say so and ask the user to add that stack in the
-app.** No API route adopts one: `POST /stacks` creates a custom stack and nothing
-adds a managed one. Writing into an unadopted block may go through — facts do
-exist in that state — but it puts company truth where the workspace's own map
-does not show it, and creating a custom near-twin instead is the duplicate
-"One truth, one home" is about. Neither is yours to choose silently.
+but not in this project, **say so and propose adding that stack to the
+project.** `POST /stacks/{stackId}/use` adds it, with no body, and `inUse` on
+`GET /stacks` then reads true. It is a write like any other, so it waits for the
+user's go. Writing a fact into one of its blocks adds the stack too, so that is
+no way around asking. Creating a custom near-twin instead is the duplicate "One
+truth, one home" is about. Neither is yours to choose silently.
 
 Where a managed block already holds a fact, none of this is undoable: there is
 no delete for a fact or a block, so you cannot empty one side to make room for
