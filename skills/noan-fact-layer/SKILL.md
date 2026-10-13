@@ -106,6 +106,14 @@ fact edits when in doubt). Scope a headless job's key **read-only** when its
 writes should stay human-gated — a `403` on write then means the key was
 scoped that way on purpose; stop, don't route around it.
 
+**Whose name goes on a write.** Everything written with a key — facts, tasks,
+comments, memos — is attributed to the key's owner. An unattended agent should
+run on a key of its own, not a person's: the user creates the agent under
+**Settings → Team**, then its key under **Settings → API → Agent API Keys**.
+`GET /me` tells you which you hold: an agent key returns `identity.role` `bot`
+(and no email), so what you write is the agent's. On a person's key, your
+comments read as that person speaking; say in the text that an agent wrote them.
+
 Verify auth before real work:
 
 ```bash
