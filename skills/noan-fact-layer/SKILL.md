@@ -256,7 +256,8 @@ tone) · **Sales** (who qualifies, who we turn away, how a deal runs, objections
 · **Team** (who does what, who decides, hiring) · **Goals** (targets and how
 they're measured) · **Operations** (tooling, policies, recurring processes). Add
 whatever else the business actually runs on — service lines, sites, regions, a
-regulatory regime.
+regulatory regime. For an agentic startup, `references/writing-facts.md` gives
+six areas to set up first, in order, starting with Product and Delivery.
 
 Check where each already lives before creating anything: the managed map covers
 most of these, and does not always name them the way you would. Team is the trap
