@@ -49,6 +49,10 @@ or copy the skills in directly:
 git clone https://github.com/getnoan/skills /tmp/noan-skills && mkdir -p ~/.claude/skills && cp -r /tmp/noan-skills/skills/* ~/.claude/skills/
 ```
 
+Auto-update is off for third-party marketplaces by default, so a plugin install
+stays on the copy it installed until you run `claude plugin update noan@noan-skills`
+or turn on auto-update for `noan-skills` in `/plugin`.
+
 The plugin also installs one hook. Noticing that something worth recording just
 went past is not a thing you can ask for after the fact, so the plugin adds a
 short standing note — [`hooks/capture-instruction.md`](hooks/capture-instruction.md),
