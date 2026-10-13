@@ -72,7 +72,7 @@ export NOAN_API_KEY=...
 
 Never paste the key into a chat — set it in the environment your agent's tools run in.
 
-**Running headless?** The skill's write-confirmation guardrail assumes a human in the loop. For unattended agents (cron, CI, autonomous fleets), issue a **read-only** key so the API enforces the boundary itself.
+**Running headless?** The skill's write-confirmation guardrail assumes a human in the loop. For unattended agents (cron, CI, autonomous fleets), issue a **read-only** key so the API enforces the boundary itself. Give an unattended agent its own identity too: create the agent under **Settings → Team**, then its key under **Settings → API → Agent API Keys**. Everything written with a key is attributed to the key's owner, so on a person's key the agent's writes and comments look like that person's.
 
 ## License
 
