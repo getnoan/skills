@@ -828,15 +828,15 @@ function liveChecks() {
 
   liveCheck(
     "GET /facts item shape",
-    [["skill", "Fact item shape: `{ id, blockSlug, content, createdAt }`"]],
+    [["skill", "Fact item shape: `{ id, blockId, blockSlug, content, createdAt }`"]],
     async () => {
       const body = await api("/facts?per_page=1");
       const item = body.items?.[0];
       assertPopulated(item, "/facts");
-      for (const f of ["id", "blockSlug", "content", "createdAt"]) {
+      for (const f of ["id", "blockId", "blockSlug", "content", "createdAt"]) {
         assert(f in item, `GET /facts items no longer carry ${f}`);
       }
-      return "carries id, blockSlug, content, createdAt";
+      return "carries id, blockId, blockSlug, content, createdAt";
     },
   );
 
