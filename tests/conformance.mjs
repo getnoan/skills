@@ -466,6 +466,37 @@ function specChecks() {
   );
 
   check(
+    "GET /insights still takes and returns what the skill says",
+    [
+      ["skill", "`GET /insights` (params: `severity`, `status`, `open` by default); needs the `insight:read` scope"],
+      ["skill", "each with a `suggestion` and the `factIds` and `blockIds` it is about"],
+    ],
+    () => {
+      const op = spec.paths["/insights"]?.get;
+      assert(op, "GET /insights is gone: the skill lists it as a read");
+      const params = Object.fromEntries(
+        (op.parameters ?? []).filter((x) => x.name).map((x) => [x.name, x.schema]),
+      );
+      assert(
+        params.severity && params.status,
+        `GET /insights now takes ${Object.keys(params).join(", ")}: the skill names severity and status`,
+      );
+      assert(
+        params.status.default === "open",
+        `GET /insights status defaults to ${params.status.default}, the skill says open`,
+      );
+      assert(
+        /insight:read/.test(op.description ?? ""),
+        "GET /insights no longer names the insight:read scope: the skill tells the reader a 403 there is the key",
+      );
+      const required = spec.components.schemas.Insight?.required ?? [];
+      const missing = ["suggestion", "factIds", "blockIds"].filter((f) => !required.includes(f));
+      assert(!missing.length, `Insight no longer requires ${missing.join(", ")}`);
+      return `params: ${Object.keys(params).join(", ")}; status defaults to open; insight:read`;
+    },
+  );
+
+  check(
     "the API surface has not grown a route the skill does not mention",
     [["skill", "Base URL `https://api.getnoan.com/v1`"]],
     () => {
@@ -504,6 +535,7 @@ function specChecks() {
         "POST /assets",
         "POST /assets/{assetId}/versions",
         "PUT /assets/{assetId}/tags",
+        "GET /insights",
       ]);
       const live = new Set(
         Object.keys(spec.paths).flatMap((p) =>
