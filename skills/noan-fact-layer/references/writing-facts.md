@@ -92,6 +92,29 @@ A gap in the checklist is a finding, not a failure. A two-person company with no
 sales process has nothing to write in that row, and an honest empty row beats a
 block of plausible filler. Gaps become tasks (see Provenance and honesty).
 
+### Set up first: an agentic startup
+
+An agentic startup, one that runs support, sales or onboarding through AI
+agents, gets the same questions first from its own agents and from its
+customers' agents. Set up these six areas before anything else, in this order.
+The seven areas above still apply: this is the order to fill them in, plus the
+custom stacks this kind of business needs from day one.
+
+| Area | An agent should be able to answer | Managed blocks that already hold it | Usually added as custom |
+|---|---|---|---|
+| **Product** | How the product works, feature by feature, what it connects to, and what is coming | `product-list`, `product-features`, `product-faq`, `product-roadmap`, stack `Product` | a `Product Manual` stack: one block per area of the product, plus how-tos and known issues |
+| **Delivery** | How a customer gets set up, how they get help, and when we escalate | `customer-service`, `user-onboarding`, stack `Experience` | a `Delivery` stack: implementation, what the customer provides, escalation |
+| **Pricing** | What it costs and how it is billed | `monetization-model`, stack `Foundations` | a `Pricing` stack: one block per plan |
+| **Market and positioning** | Who it is for, who qualifies, why they choose us, how we talk to them | `ideal-customer` (stack `Customer`); `sales-customer-profile`, `sales-buyer-persona` (stack `Sales`); `value-proposition`, `brand-positioning`, `brand-tone` (stack `Brand`) | rarely anything |
+| **Trust** | How customer data is handled, secured and kept compliant | none | a `Trust` stack: security, data handling, compliance, subprocessors |
+| **Company and numbers** | How to reach us, who runs it, what we are aiming for this year | `contact-details`, `operations-leadership-bios` (stack `Operations`); `year-goals` (stack `Growth`) | rarely anything |
+
+Product and Delivery come first because they are what a support agent answers
+from. An agent that replies to customers before those exist answers from
+absence, and either escalates everything or guesses. `Experience`,
+`Foundations` and `Growth` are often not in use in a new project; add them as
+described above.
+
 ## Custom is the normal path
 
 Managed stacks are a starting map — the generic seven, plus an industry stack if
