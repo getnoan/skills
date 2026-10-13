@@ -87,7 +87,9 @@ no read endpoint returns it, and an agent grounding later sees only titles and
 fact content. Anything a future reader must know belongs in the fact.
 
 Start from "What a fact layer should cover" there — the seven areas most
-businesses need answered — then shape the draft to *this* business. Scan the
+businesses need answered — then shape the draft to *this* business. For an
+agentic startup, start from "Set up first: an agentic startup" in the same
+file instead: six areas, in the order its agents will need them. Scan the
 **unfiltered** `GET /stacks` for an industry stack that fits before drafting
 anything custom; step 0's `in_use_only=true` deliberately hides every stack this
 project has not adopted, which on a new workspace is nearly all of them. Managed
