@@ -15,6 +15,7 @@ NOAN's public Agent Skills, also shipped as a Claude Code plugin. Each skill is 
 - **Interactive writes wait for the user's go.** The only exceptions are the two exceptions `SKILL.md` documents: a headless job whose key can write, and the capture skill's note and backlog task. A new exception is a decision, not a skill edit.
 - **`hooks/capture-instruction.md` runs in every session** of everyone who installs the plugin. Keep it to a few sentences and change it only on purpose.
 - Reference files are linked by their raw URL on `main`, so a single-file install can fetch them.
+- **No `version` in `.claude-plugin/plugin.json` or `marketplace.json`.** Without one, Claude Code versions the plugin by commit, so every merge reaches installed users. A pinned version keeps them on their install-day copy until someone bumps it.
 
 ## Commands
 
