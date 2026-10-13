@@ -88,26 +88,26 @@ could not run, in a session that had nothing to do with NOAN, is noise.
 
 ### Through MCP, the conventions are yours to get right
 
-The MCP server does not enforce any of this for you, and two of its tools
-differ from the REST shapes below in ways that break a capture quietly:
+The MCP server does not enforce any of this for you, and its tools differ from
+the REST shapes below in ways that break a capture quietly:
 
 - **`create_task` has no `status`.** It takes `column`, by name, and the
   parameter is optional. Pass `column: "Backlog"` explicitly — omit it and
   the task can land in a column the weekly review never reads, which looks
   exactly like a capture nobody found interesting.
-- **`create_note` has no `title`.** It takes `content` only, and the server
-  derives a title from it — rewriting rather than copying, and dropping a
-  bracketed prefix on the way (`[Fact Candidate] Starter plan moved` comes
-  back titled `Starter Plan Moved`). So **put `[Fact Candidate]` on the first
-  line of the content**: that is what the reviewer matches on, and the title
-  is not yours to set.
+- **`create_note` takes a `title`, capped at 120 characters.** Pass the same
+  `[Fact Candidate]` title as the task, shortened to fit. The parameter is
+  optional, and without it the server derives a title from the content,
+  dropping the bracketed prefix (`[Fact Candidate] Starter plan moved` comes
+  back titled `Starter Plan Moved`), so the reviewer cannot tell the note is a
+  candidate.
 - **Never set `private: true` on either.** Both tools offer it, and it means
   only the creator can see the record. The review runs on a different key from
   yours, so a private capture is a capture nobody can read — the one failure
   this whole convention exists to avoid.
 
-Everything else — the title prefix on the task, the summary in `details`, the
-length caps — is identical on both paths.
+Everything else (the title prefix on the task, the summary in `details`, the
+other length caps) is identical on both paths.
 
 ## 1. The note — the rationale
 
@@ -121,8 +121,7 @@ curl -s -X POST https://api.getnoan.com/v1/notes \
 JSON
 ```
 
-Prefix the note title `[Fact Candidate]` too — and, on the MCP path where the
-title is not yours to set, the first line of the content. A reviewing agent
+Prefix the note title `[Fact Candidate]` too, on both paths. A reviewing agent
 scans recent notes for candidates in their own right and skips the ones
 carrying that prefix, so the same finding is not counted twice, once from the
 note and once from the task.

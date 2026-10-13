@@ -178,7 +178,8 @@ instead.)
 project's knowledge base — what you want when grounding. Leave it **off** when
 scanning for an industry stack: the catalogue holds stacks this project has not
 adopted, and the filter hides exactly those. If the right home turns out to be
-unadopted, say so — no API route adopts a managed stack, only the app does.
+unadopted, say so and offer to add it with `POST /stacks/{stackId}/use` once
+the user says yes.
 
 Tags carry their own `usageInstructions` field — read and follow it before
 applying a tag. Asset content lives in `activeVersion`

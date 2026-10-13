@@ -39,10 +39,11 @@ The sign-in was the auth. There is no key on this route and none is needed:
 | Who am I, which workspace | `get_me` | `GET /me` |
 | Find what the business knows about a topic | `search_knowledge` | none — semantic, see below |
 | Stacks and their blocks | `list_stacks` (`inUseOnly` defaults to `true`) | `GET /stacks`, `GET /blocks` |
-| Facts in named blocks | `list_facts` with `blockSlugs` | `GET /facts?block_slug=…` |
+| Add or create stacks and blocks | `use_stack`, `create_stack`, `add_block` | `POST /stacks/{stackId}/use`, `POST /stacks`, `POST /stacks/{stackId}/blocks` |
+| Facts in named blocks | `list_facts` with `blockIds` | `GET /facts?block_slug=…` |
 | Write a fact | `create_fact` | `POST /facts` |
 | Contacts | `find_contact`, `create_contact`, `update_contact`, `add_memos_to_contact`, `add_company_role` | `/contacts` routes |
-| Tasks | `list_tasks`, `create_task`, `update_task`, `complete_tasks` | `/tasks` routes |
+| Tasks | `list_tasks`, `create_task`, `update_task`, `complete_tasks`, `add_task_comment` | `/tasks` routes |
 | Notes | `list_notes`, `create_note` | `/notes` |
 | Tags | `list_tags`, `create_tags`, `update_tag`, `tag` | `/tags`, the `PUT …/tags` routes |
 | Assets | `list_assets`, `read_asset`, `create_asset`, `update_asset` | `/assets` routes |
@@ -54,10 +55,10 @@ the tool wins — tell the user which line here is stale.
 ## Where the connector differs
 
 **Reading the whole fact base takes batches.** `list_facts` with no
-`blockSlugs` returns at most `limit` facts (default 50, max 200), and it has no
+`blockIds` returns at most `limit` facts (default 50, max 200), and it has no
 page or offset — a workspace with more blocks than that is cut off with nothing
-in the response saying so. To read everything: take every block slug from
-`list_stacks`, then call `list_facts` with those slugs in batches of up to 200.
+in the response saying so. To read everything: take every block id from
+`list_stacks`, then call `list_facts` with those ids in batches of up to 200.
 SKILL.md's rule still applies — never call a fact missing until you have read
 the full fact base.
 
@@ -79,21 +80,31 @@ things are different:
   approval before it becomes ground truth. If a re-read doesn't show it yet,
   that is the likely reason — tell the user rather than writing it again.
 
-**No tool creates or adopts stacks and blocks.** The connector writes facts
-into blocks that already exist; it cannot create a custom stack, add a block,
-or turn on a managed stack. When the right home doesn't exist, give the user
-the exact structure to create in the app at <https://app.getnoan.com> — stack
-title and description, block titles and descriptions, per `writing-facts.md` —
-and carry on once they say it is there. `list_stacks` with `inUseOnly: false`
-still shows the managed and industry stacks they could turn on instead.
+**Blocks are addressed by id, not slug.** `list_stacks` returns both, but
+`list_facts` takes `blockIds` and `create_fact` takes `blockId`. Take the id from
+`list_stacks`, `create_stack` or `add_block`; never construct one, and never pass
+a slug where an id goes.
+
+**Stacks and blocks are writes, like facts.** Propose the exact structure per
+`writing-facts.md` and wait for the user's yes before any of these:
+
+- `use_stack` adds a managed stack to the project. `list_stacks` with
+  `inUseOnly: false` shows the managed and industry stacks it can add. Check
+  these before creating anything custom.
+- `create_stack` creates a custom stack with its blocks, and returns their ids.
+- `add_block` adds a block to a custom stack. Managed stacks accept no new
+  blocks.
+
+`create_stack` and `add_block` return an existing stack or block with the same
+title unchanged, with `created` set to `false`. That stops an exact repeat, not
+a near-twin under another title, so still check `list_stacks` first.
 
 **Fact history is not exposed.** There is no tool for a fact's versions. If
 the user needs the lineage, it is in the app.
 
 **Tasks use `column`, not `status`**, by name (`Backlog`, `In Progress`,
-`Done`). There is no comment tool, so progress the REST route would post as a
-task comment has nowhere to go on the task itself. Don't overwrite `details`
-with it — `details` is the brief. Put it in a note and tell the user where.
+`Done`). Progress goes in `add_task_comment`, as it would in a task comment on
+the REST route. Don't overwrite `details` with it, since `details` is the brief.
 
 ## First connect, on this route
 
@@ -108,12 +119,11 @@ Follow `first-connect.md` with these substitutions:
   those tools. Those are the chat app's connectors, not NOAN's; if the one
   they need isn't connected, they add it in the app, not in NOAN.
 - **Step 3 — architecture.** Prefer homes that already exist: blocks in the
-  in-use stacks, then managed or industry stacks the user can turn on. Custom
-  stacks are still right when the business needs them, but on this route the
-  user creates them in the app from your proposal, so keep that list short and
-  exact.
-- **Step 4 — write.** Once the blocks exist, take their slugs from
-  `list_stacks` — never construct one — and fill each with `create_fact`.
+  in-use stacks, then managed or industry stacks to add with `use_stack`.
+  Custom stacks are still right when the business needs them. After the
+  user's yes, create them with `create_stack` and `add_block`.
+- **Step 4 — write.** Take block ids from `list_stacks` or from the create
+  results, never construct one, and fill each block with `create_fact`.
 - **Step 5 — gaps.** `create_task` with `column: "Backlog"`. There is no
   `externalId` on this route, so dedupe by reading `list_tasks` and comparing
   titles before creating.
