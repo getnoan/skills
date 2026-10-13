@@ -173,6 +173,7 @@ instead.)
 | List tags             | `GET /tags`                                                                                       |
 | List tasks            | `GET /tasks` (params: `status`, `completed`; `status=null` → tasks with no board column)          |
 | List assets           | `GET /assets` (params: `tag_id`, `sort` = `createdAt`\|`updatedAt`, `order`)                      |
+| Issues in the fact layer | `GET /insights` (params: `severity`, `status`, `open` by default); needs the `insight:read` scope |
 
 `in_use_only=true` limits stacks/blocks to those actually added to this
 project's knowledge base — what you want when grounding. Leave it **off** when
@@ -185,6 +186,17 @@ Tags carry their own `usageInstructions` field — read and follow it before
 applying a tag. Asset content lives in `activeVersion`
 (`{title, text, createPrompt}`); `text` is the content, `createPrompt` its
 provenance.
+
+**Insights are NOAN's findings about the fact layer, not facts.** `GET /insights`
+lists facts that overlap or should be connected, facts with no related facts,
+and missing topics, each with a `suggestion` and the `factIds` and `blockIds` it
+is about. `blockIds` match `id` on `GET /blocks`. A fact id can name a version
+that has since been superseded, so resolve it with `GET /facts/{factId}/versions`
+and re-read the current fact before repeating the insight. A suggestion is a
+proposal: acting on it is a write, so it waits for the user's go. The route
+needs the `insight:read` scope, which only project owners and executives can
+grant, and returns only insights about blocks the key can read, so an empty list
+is not proof the fact layer has no issues.
 
 **`q` is a name lookup, not a search.** It matches `name`, `alias` and `website`
 — never `email`. Querying an address returns `0 items` for contacts that plainly
