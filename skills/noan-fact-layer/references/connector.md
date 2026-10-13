@@ -42,7 +42,8 @@ The sign-in was the auth. There is no key on this route and none is needed:
 | Add or create stacks and blocks | `use_stack`, `create_stack`, `add_block` | `POST /stacks/{stackId}/use`, `POST /stacks`, `POST /stacks/{stackId}/blocks` |
 | Facts in named blocks | `list_facts` with `blockIds` | `GET /facts?block_slug=…` |
 | Write a fact | `create_fact` | `POST /facts` |
-| Contacts | `find_contact`, `create_contact`, `update_contact`, `add_memos_to_contact`, `add_company_role` | `/contacts` routes |
+| Issues NOAN found in the fact layer | `list_insights` | `GET /insights` |
+| Contacts | `find_contact`, `list_memos`, `list_companies`, `create_contact`, `update_contact`, `add_memos_to_contact`, `add_company_role` | `/contacts` routes; memos and companies are read one contact at a time from `GET /contacts/{contactId}` |
 | Tasks | `list_tasks`, `create_task`, `update_task`, `complete_tasks`, `add_task_comment` | `/tasks` routes |
 | Notes | `list_notes`, `create_note` | `/notes` |
 | Tags | `list_tags`, `create_tags`, `update_tag`, `tag` | `/tags`, the `PUT …/tags` routes |
@@ -98,6 +99,14 @@ a slug where an id goes.
 `create_stack` and `add_block` return an existing stack or block with the same
 title unchanged, with `created` set to `false`. That stops an exact repeat, not
 a near-twin under another title, so still check `list_stacks` first.
+
+**Insights point at blocks and facts by id.** Each one from `list_insights`
+carries a `suggestion` and the `blockIds` and `factIds` it is about. The block
+ids match `list_stacks`. A fact id can name a version that has since been
+replaced, and there is no versions tool here, so read the current fact with
+`list_facts` on the insight's `blockIds` before repeating the insight. A
+suggestion is a proposal: acting on it is a write, so it waits for the user's
+yes like any other.
 
 **Fact history is not exposed.** There is no tool for a fact's versions. If
 the user needs the lineage, it is in the app.
