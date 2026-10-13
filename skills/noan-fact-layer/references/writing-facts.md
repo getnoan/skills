@@ -318,9 +318,9 @@ creating a stack whose title already exists, or a block whose title already
 exists in that stack, is a `409` conflict, not a second copy.
 
 One consequence worth internalising: because you can't predict a slug, an empty
-`GET /facts?block_slug=<the-name-you-guessed>` means **you guessed the wrong
-slug**, not that the block has no fact. Resolve through `GET /blocks` first,
-every time.
+`GET /blocks?slug=<the-name-you-guessed>` means **you guessed the wrong
+slug**, not that there is no such block or fact. Find the block through
+`GET /blocks` by title first, every time, then read and write it by its `id`.
 
 Blocks can only be added to **custom** stacks. Managed stacks cannot be created
 or modified through the API.
@@ -379,7 +379,7 @@ rates, or the two drift apart within a month.
 **`POST /facts` replaces the block's fact wholesale.** For any block that
 already has content, the mandatory pattern is:
 
-1. `GET /facts?block_slug=…` and take the current content **verbatim**
+1. `GET /facts?block_id=…` and take the current content **verbatim**
 2. Splice your change into it
 3. `POST` the complete amended content
 4. Re-read and diff: every prior entry must still be present, and the new
@@ -388,7 +388,7 @@ already has content, the mandatory pattern is:
 Posting only your new entry wipes the rest. There is no partial write.
 
 Step 4 has to be a real content diff. Counting facts proves nothing —
-`GET /facts?block_slug=…` returns the single latest fact per block by
+`GET /facts?block_id=…` returns the single latest fact per block by
 construction, so it reads `1` whether your splice preserved everything or
 destroyed it. If you kept the fact `id` from before the write, walk
 `GET /facts/{factId}/versions` to compare against the prior version directly;

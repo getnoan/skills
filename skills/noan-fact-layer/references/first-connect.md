@@ -105,12 +105,12 @@ Create stacks with their blocks via `POST /stacks` — on this endpoint every
 nested block needs `title` **and** `description` (both required; titles are
 3–512 characters). Then fill each block with `POST /facts`.
 
-**Take the block slugs from the create response; never construct one.** The
+**Take the block ids from the create response; never construct a slug.** The
 `201` returns `{"stack": {id, slug, title, description, managed, blocks[]}}`,
-and each entry in `blocks[]` carries the generated `slug` — which will be
-prefixed and unlovely, e.g.
-`c4e19a7b-clinical-services-5f2dd-orthopaedic-surgery`. That is the string
-`POST /facts` wants as `blockSlug`. Guessing a tidy slug from the title is the
+and each entry in `blocks[]` carries its `id` and the generated `slug` — which
+will be prefixed and unlovely, e.g.
+`c4e19a7b-clinical-services-5f2dd-orthopaedic-surgery`. `POST /facts` wants
+the `id`, as `blockId`. Guessing a tidy slug from the title is the
 single easiest way to make this step fail, and it fails quietly: the fact posts
 against nothing you can find, or the call 404s on a slug that was never real.
 

@@ -40,7 +40,7 @@ The sign-in was the auth. There is no key on this route and none is needed:
 | Find what the business knows about a topic | `search_knowledge` | none — semantic, see below |
 | Stacks and their blocks | `list_stacks` (`inUseOnly` defaults to `true`) | `GET /stacks`, `GET /blocks` |
 | Add or create stacks and blocks | `use_stack`, `create_stack`, `add_block` | `POST /stacks/{stackId}/use`, `POST /stacks`, `POST /stacks/{stackId}/blocks` |
-| Facts in named blocks | `list_facts` with `blockIds` | `GET /facts?block_slug=…` |
+| Facts in named blocks | `list_facts` with `blockIds` | `GET /facts?block_id=…` |
 | Write a fact | `create_fact` | `POST /facts` |
 | Issues NOAN found in the fact layer | `list_insights` | `GET /insights` |
 | Contacts | `find_contact`, `list_memos`, `list_companies`, `create_contact`, `update_contact`, `add_memos_to_contact`, `add_company_role` | `/contacts` routes; memos and companies are read one contact at a time from `GET /contacts/{contactId}` |
