@@ -95,8 +95,8 @@ the REST shapes below in ways that break a capture quietly:
   parameter is optional. Pass `column: "Backlog"` explicitly — omit it and
   the task can land in a column the weekly review never reads, which looks
   exactly like a capture nobody found interesting.
-- **`create_note` takes a `title`, capped at 120 characters.** Pass the same
-  `[Fact Candidate]` title as the task, shortened to fit. The parameter is
+- **`create_note` takes a `title`.** Pass the same `[Fact Candidate]` title
+  as the task, shortened to fit. The parameter is
   optional, and without it the server derives a title from the content,
   dropping the bracketed prefix (`[Fact Candidate] Starter plan moved` comes
   back titled `Starter Plan Moved`), so the reviewer cannot tell the note is a
@@ -106,8 +106,8 @@ the REST shapes below in ways that break a capture quietly:
   yours, so a private capture is a capture nobody can read — the one failure
   this whole convention exists to avoid.
 
-Everything else (the title prefix on the task, the summary in `details`, the
-other length caps) is identical on both paths.
+Everything else (the title prefix on the task, the summary in `details`) is
+identical on both paths.
 
 ## 1. The note — the rationale
 
@@ -126,9 +126,6 @@ scans recent notes for candidates in their own right and skips the ones
 carrying that prefix, so the same finding is not counted twice, once from the
 note and once from the task.
 
-`content` caps at 25,000 characters and is **rejected, not truncated**, above
-it. Read the new id from either shape: `created?.note?.id || created?.id`.
-
 ## 2. The task — the queue entry
 
 ```bash
@@ -144,14 +141,14 @@ Three things are load-bearing:
 
 - **The title starts with the literal `[Fact Candidate]`** — brackets included,
   nothing before it, not even a space. Matched anchored and case-insensitively.
-  `Fact candidate: …` does not match. Titles cap at **256 characters**, so
-  keep the headline short and let `details` carry the rest.
+  `Fact candidate: …` does not match. Keep the headline short and let
+  `details` carry the rest.
 - **`status` is `"backlog"`.** The review queries that status; anything else is
   invisible to it.
 - **`details` is the only thing a reviewing agent reads.** It never opens the
-  note — the note is for the human. "See the note" wastes the review. `details`
-  caps at **2048 characters**, rejected outright rather than truncated, so
-  check the length before posting; put anything longer in the note.
+  note — the note is for the human. "See the note" wastes the review. Check
+  its length against the limit before posting; put anything longer in the
+  note.
 
 A well-formed reviewer reports a title that misses the prefix rather than
 dropping it, but do not rely on that — get the prefix right.

@@ -34,34 +34,16 @@ The sign-in was the auth. There is no key on this route and none is needed:
 
 ## Which tool does what
 
-| Goal | Tool | REST equivalent in SKILL.md |
-| --- | --- | --- |
-| Who am I, which workspace | `get_me` | `GET /me` |
-| Find what the business knows about a topic | `search_knowledge` | none — semantic, see below |
-| Stacks and their blocks | `list_stacks` (`inUseOnly` defaults to `true`) | `GET /stacks`, `GET /blocks` |
-| Add or create stacks and blocks | `use_stack`, `create_stack`, `add_block` | `POST /stacks/{stackId}/use`, `POST /stacks`, `POST /stacks/{stackId}/blocks` |
-| Facts in named blocks | `list_facts` with `blockIds` | `GET /facts?block_id=…` |
-| Write a fact | `create_fact` | `POST /facts` |
-| Issues NOAN found in the fact layer | `list_insights` | `GET /insights` |
-| Contacts | `find_contact`, `list_memos`, `list_companies`, `create_contact`, `update_contact`, `add_memos_to_contact`, `add_company_role` | `/contacts` routes; memos and companies are read one contact at a time from `GET /contacts/{contactId}` |
-| Tasks | `list_tasks`, `create_task`, `update_task`, `complete_tasks`, `add_task_comment` | `/tasks` routes |
-| Notes | `list_notes`, `create_note` | `/notes` |
-| Tags | `list_tags`, `create_tags`, `update_tag`, `tag` | `/tags`, the `PUT …/tags` routes |
-| Assets | `list_assets`, `read_asset`, `create_asset`, `update_asset` | `/assets` routes |
-| Stuck on NOAN itself | `consult_verity`, then `report_outcome` | none |
-
-Tool descriptions are the live contract. Where one disagrees with this table,
-the tool wins — tell the user which line here is stale.
+The tool descriptions are the reference for what each tool takes and returns,
+its limits and its defaults. Read them there; this file covers what to do with
+them.
 
 ## Where the connector differs
 
-**Reading the whole fact base takes batches.** `list_facts` with no
-`blockIds` returns at most `limit` facts (default 50, max 200), and it has no
-page or offset — a workspace with more blocks than that is cut off with nothing
-in the response saying so. To read everything: take every block id from
-`list_stacks`, then call `list_facts` with those ids in batches of up to 200.
-SKILL.md's rule still applies — never call a fact missing until you have read
-the full fact base.
+**Read the whole fact base before calling a fact missing.** `list_facts`
+returns at most `limit` facts per call, and its description says how to read
+the rest. SKILL.md's rule still applies: never call a
+fact missing until you have read the full fact base.
 
 **`search_knowledge` finds; it does not prove absence.** It is semantic and
 permission-filtered, and very short facts are not indexed at all. Use it first
@@ -72,19 +54,13 @@ is none".
 **`create_fact` still replaces the block wholesale**, exactly like
 `POST /facts`: read the block with `list_facts`, splice your change into the
 current content verbatim, write the full result, then re-read and diff. Two
-things are different:
+things to watch:
 
-- `create_fact` caps `content` at 20,000 characters and the REST route does
-  not. A block already longer than that cannot be rewritten through the
-  connector — say so rather than trimming someone's fact to fit.
+- A block already longer than `create_fact` accepts cannot be rewritten through
+  the connector. Say so rather than trimming someone's fact to fit.
 - Depending on workspace settings, a fact written here may wait for human
   approval before it becomes ground truth. If a re-read doesn't show it yet,
   that is the likely reason — tell the user rather than writing it again.
-
-**Blocks are addressed by id, not slug.** `list_stacks` returns both, but
-`list_facts` takes `blockIds` and `create_fact` takes `blockId`. Take the id from
-`list_stacks`, `create_stack` or `add_block`; never construct one, and never pass
-a slug where an id goes.
 
 **Stacks and blocks are writes, like facts.** Propose the exact structure per
 `writing-facts.md` and wait for the user's yes before any of these:
@@ -96,24 +72,20 @@ a slug where an id goes.
 - `add_block` adds a block to a custom stack. Managed stacks accept no new
   blocks.
 
-`create_stack` and `add_block` return an existing stack or block with the same
-title unchanged, with `created` set to `false`. That stops an exact repeat, not
-a near-twin under another title, so still check `list_stacks` first.
+**Insights point at blocks and facts by id.** A suggestion from
+`list_insights` is a proposal: acting on it is a write, so it waits for the
+user's yes like any other.
 
-**Insights point at blocks and facts by id.** Each one from `list_insights`
-carries a `suggestion` and the `blockIds` and `factIds` it is about. The block
-ids match `list_stacks`. A fact id can name a version that has since been
-replaced, and there is no versions tool here, so read the current fact with
-`list_facts` on the insight's `blockIds` before repeating the insight. A
-suggestion is a proposal: acting on it is a write, so it waits for the user's
-yes like any other.
+**There are no delete tools.** Removing a stack, block or fact is done by a
+person in the NOAN app. Don't write an empty or placeholder fact in place of a
+delete.
 
 **Fact history is not exposed.** There is no tool for a fact's versions. If
 the user needs the lineage, it is in the app.
 
-**Tasks use `column`, not `status`**, by name (`Backlog`, `In Progress`,
-`Done`). Progress goes in `add_task_comment`, as it would in a task comment on
-the REST route. Don't overwrite `details` with it, since `details` is the brief.
+**Progress on a task goes in `add_task_comment`**, as it would in a task
+comment on the REST route. Don't overwrite `details` with it, since `details`
+is the brief.
 
 ## First connect, on this route
 

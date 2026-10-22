@@ -11,7 +11,8 @@ NOAN's public Agent Skills, also shipped as a Claude Code plugin. Each skill is 
 
 ## Skills
 
-- **Every claim about the API matches the published spec** (`https://api.getnoan.com/openapi.json`). `tests/conformance.mjs` ties each claim to the spec or the live API by exact phrases (`anchors`). Changing a phrase means updating its check in the same PR.
+- **How a call works lives in the API, not here.** Routes, parameters, shapes, limits and errors are in the published spec (`https://api.getnoan.com/openapi.json`) and in each MCP tool's description. A skill says when and why to make a call. When the spec or a tool description is missing something, it gets fixed there, not added to a skill.
+- **The API claims a skill still makes match the spec.** `tests/conformance.mjs` ties each one to the spec or the live API by exact phrases (`anchors`). Changing a phrase means updating its check in the same PR.
 - **Interactive writes wait for the user's go.** The only exceptions are the two exceptions `SKILL.md` documents: a headless job whose key can write, and the capture skill's note and backlog task. A new exception is a decision, not a skill edit.
 - **`hooks/capture-instruction.md` runs in every session** of everyone who installs the plugin. Keep it to a few sentences and change it only on purpose.
 - Reference files are linked by their raw URL on `main`, so a single-file install can fetch them.
