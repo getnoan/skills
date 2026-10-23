@@ -133,8 +133,6 @@ async function runRegistry({ runLive }) {
 const assert = (cond, msg) => {
   if (!cond) throw new Error(msg);
 };
-// Distinguishes "the key points at a workspace with nothing in it" from "the
-// skill is wrong", which are the same red build otherwise.
 const assertConfig = (cond, msg) => {
   if (!cond) throw new ConfigFault(msg);
 };
@@ -203,11 +201,6 @@ function specChecks() {
     },
   );
 
-  // Inverted 2026-09-23, when getnoan/noan#1555 shipped: reads carry a
-  // description now. The old check asserted their ABSENCE and called its own
-  // failure the good outcome, which is what it turned out to be. Kept pointing
-  // the other way rather than deleted — the guidance now rests on descriptions
-  // being readable, so their disappearance is the thing worth catching.
   check(
     "managed stacks reject added blocks",
     [
@@ -664,10 +657,6 @@ function captureChecks() {
       return `status enum: ${values.join(" | ")}`;
     },
   );
-
-  // The two MCP shapes the skill warns about. create_task takes a column, not a
-  // status, and create_note's title is optional and shorter than the REST one.
-  // Both tools are writes, so a read-only key never sees them.
 }
 
 // ------------------------------------------------ connector route (MCP only)
@@ -717,9 +706,6 @@ function connectorChecks() {
       return `${names.length} tools; no fact-history or delete tool; create_task: ${taskProps.join(", ")}`;
     },
   );
-
-  // These replaced "have the user create it in the app" and "there is no comment
-  // tool". All but list_facts are writes, so a read-only key checks only that one.
 }
 
 // ---------------------------------------------------------------------- main
