@@ -96,7 +96,7 @@ the REST shapes below in ways that break a capture quietly:
   the task can land in a column the weekly review never reads, which looks
   exactly like a capture nobody found interesting.
 - **`create_note` takes a `title`.** Pass the same `[Fact Candidate]` title
-  as the task, shortened to fit. The parameter is
+  as the task, shortened to the tool's `title` `maxLength`. The parameter is
   optional, and without it the server derives a title from the content,
   dropping the bracketed prefix (`[Fact Candidate] Starter plan moved` comes
   back titled `Starter Plan Moved`), so the reviewer cannot tell the note is a
@@ -147,8 +147,9 @@ Three things are load-bearing:
   invisible to it.
 - **`details` is the only thing a reviewing agent reads.** It never opens the
   note — the note is for the human. "See the note" wastes the review. Check
-  its length against the limit before posting; put anything longer in the
-  note.
+  its length against the `maxLength` on `details` (on the `create_task` tool,
+  or `CreateTaskRequest.details` in the spec) before posting; put anything
+  longer in the note.
 
 A well-formed reviewer reports a title that misses the prefix rather than
 dropping it, but do not rely on that — get the prefix right.

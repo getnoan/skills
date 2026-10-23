@@ -657,6 +657,19 @@ function captureChecks() {
       return `status enum: ${values.join(" | ")}`;
     },
   );
+
+  check(
+    "task details still declare the limit the capture skill points to",
+    [["capture", "`CreateTaskRequest.details` in the spec"]],
+    () => {
+      const max = spec.components.schemas.CreateTaskRequest?.properties?.details?.maxLength;
+      assert(
+        Number.isInteger(max),
+        "CreateTaskRequest.details no longer declares a maxLength, so the capture skill points to a limit that is not there",
+      );
+      return `details maxLength: ${max}`;
+    },
+  );
 }
 
 // ------------------------------------------------ connector route (MCP only)
