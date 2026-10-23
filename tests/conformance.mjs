@@ -685,6 +685,7 @@ function connectorChecks() {
     [
       ["connector", "There is no tool for a fact's versions."],
       ["connector", "There is no\n  `externalId` on this route"],
+      ["connector", "**There are no delete tools.**"],
     ],
     async () => {
       const { tools, fullScope, scopes } = await mcpSurface();
@@ -701,6 +702,11 @@ function connectorChecks() {
         !versions.length,
         `the MCP server now offers ${versions.join(", ")} — connector.md says fact history is app-only`,
       );
+      const deletes = names.filter((n) => /delete|remove/.test(n));
+      assert(
+        !deletes.length,
+        `the MCP server now offers ${deletes.join(", ")}, but connector.md says removal is done in the app`,
+      );
       const task = tools.find((t) => t.name === "create_task");
       assert(task, "the MCP server no longer offers create_task");
       const taskProps = Object.keys(task.inputSchema?.properties ?? {});
@@ -708,7 +714,7 @@ function connectorChecks() {
         !taskProps.includes("externalId"),
         "create_task now takes externalId — connector.md tells the reader to dedupe by title instead",
       );
-      return `${names.length} tools; no fact-history tool; create_task: ${taskProps.join(", ")}`;
+      return `${names.length} tools; no fact-history or delete tool; create_task: ${taskProps.join(", ")}`;
     },
   );
 
