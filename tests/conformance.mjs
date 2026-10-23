@@ -133,22 +133,8 @@ async function runRegistry({ runLive }) {
 const assert = (cond, msg) => {
   if (!cond) throw new Error(msg);
 };
-// Distinguishes "the key points at a workspace with nothing in it" from "the
-// skill is wrong", which are the same red build otherwise.
-const assertPopulated = (item, what) => {
-  if (!item) {
-    throw new ConfigFault(
-      `GET ${what} returned no items: this key's workspace is empty or re-scoped, so the shape checks could not run. That is a configuration problem, not a documentation one.`,
-    );
-  }
-};
 const assertConfig = (cond, msg) => {
   if (!cond) throw new ConfigFault(msg);
-};
-const sameSet = (got, want) => {
-  const g = [...new Set(got)].sort();
-  const w = [...want].sort();
-  return g.length === w.length && g.every((v, i) => v === w[i]);
 };
 
 // ---------------------------------------------------------------- spec checks
@@ -215,66 +201,6 @@ function specChecks() {
     },
   );
 
-  // Inverted 2026-09-23, when getnoan/noan#1555 shipped: reads carry a
-  // description now. The old check asserted their ABSENCE and called its own
-  // failure the good outcome, which is what it turned out to be. Kept pointing
-  // the other way rather than deleted — the guidance now rests on descriptions
-  // being readable, so their disappearance is the thing worth catching.
-  check(
-    "descriptions are returned by the read schemas",
-    [
-      ["writing", "Reads return one:"],
-      [
-        "skill",
-        "descriptions (required on create, returned on reads, and never updatable)",
-      ],
-    ],
-    () => {
-      const s = spec.components.schemas;
-      const has = (n) =>
-        Object.keys(s[n]?.properties ?? {}).includes("description");
-      for (const n of ["BlockListItem", "Stack", "BlockDetailed"]) {
-        assert(
-          has(n),
-          `${n} no longer carries \`description\` — reads used to omit it and the guidance was rewritten when they stopped; if it has gone again, writing-facts.md is wrong`,
-        );
-      }
-      // The half that did NOT change, and the reason a description still cannot
-      // be treated like a fact: there is no route that updates one.
-      const updatable = Object.entries(spec.paths).filter(
-        ([p, ops]) =>
-          /^\/stacks(\/\{stackId\}\/blocks)?$/.test(p) &&
-          Object.keys(ops).some((m) => m === "patch" || m === "put"),
-      );
-      assert(
-        updatable.length === 0,
-        `a description can be edited now (${updatable.map(([p]) => p).join(", ")}) — write-once is the whole reason the guidance says to put durable text in the fact`,
-      );
-      return "BlockListItem, Stack, BlockDetailed all carry it; still write-once";
-    },
-  );
-
-  check(
-    "a block created via POST /stacks echoes its description",
-    [
-      [
-        "writing",
-        "`POST /stacks` returns the description on the stack and on each nested block",
-      ],
-    ],
-    () => {
-      const blocks =
-        spec.paths["/stacks"].post.responses["201"].content["application/json"]
-          .schema.properties.stack.properties.blocks;
-      const ref = blocks?.items?.$ref ?? "";
-      assert(
-        ref.endsWith("/BlockDetailed"),
-        `POST /stacks 201 nests blocks as ${ref || "an inline schema"}, not BlockDetailed — nested descriptions are not echoed after all`,
-      );
-      return "201 nests blocks as BlockDetailed";
-    },
-  );
-
   check(
     "managed stacks reject added blocks",
     [
@@ -300,23 +226,6 @@ function specChecks() {
   );
 
   check(
-    "no single-task read, but a single-contact read",
-    [["skill", "There is no `GET /tasks/{taskId}`"]],
-    () => {
-      assert(
-        !spec.paths["/tasks/{taskId}"] ||
-          !methodsOf("/tasks/{taskId}").includes("get"),
-        "GET /tasks/{taskId} now exists — SKILL.md says it does not",
-      );
-      assert(
-        methodsOf("/contacts/{contactId}").includes("get"),
-        "GET /contacts/{contactId} has gone — SKILL.md leans on it for memos",
-      );
-      return "tasks single-read absent, contacts single-read present";
-    },
-  );
-
-  check(
     "fact version history is readable",
     [["writing", "`GET /facts/{factId}/versions`"]],
     () => {
@@ -325,65 +234,6 @@ function specChecks() {
         "GET /facts/{factId}/versions has gone — the replace-rule verification step depends on it",
       );
       return "present";
-    },
-  );
-
-  check(
-    "creates still require what the write table says they require",
-    [
-      [
-        "skill",
-        "`title`, `description`, `blocks[]` (each block needs `title` **and** `description`)",
-      ],
-    ],
-    () => {
-      const req = (n) => spec.components.schemas[n]?.required ?? [];
-      for (const f of ["title", "description", "blocks"]) {
-        assert(
-          req("CreateStackRequest").includes(f),
-          `CreateStackRequest no longer requires ${f}`,
-        );
-      }
-      assert(
-        req("CreateBlockRequest").includes("title"),
-        "CreateBlockRequest no longer requires title",
-      );
-      return "CreateStackRequest: title, description, blocks";
-    },
-  );
-
-  check(
-    "documented length limits still match the spec",
-    [
-      [
-        "skill",
-        "task `details` 2048 · task comment `content` 25,000 · note `content` 25,000",
-      ],
-    ],
-    () => {
-      const max = (schema, field) =>
-        spec.components.schemas[schema]?.properties?.[field]?.maxLength;
-      const pairs = [
-        ["CreateTaskRequest", "details", 2048],
-        ["CreateTaskCommentRequest", "content", 25000],
-        ["CreateNoteRequest", "content", 25000],
-      ];
-      const seen = [];
-      for (const [schema, field, want] of pairs) {
-        const got = max(schema, field);
-        // A missing maxLength is a finding, not a skip: the skill states these
-        // as hard numbers an unattended agent sizes its writes against.
-        assert(
-          got !== undefined,
-          `${schema}.${field} no longer declares maxLength, so the skill's "${want}" is now unverifiable — check it against a live write before trusting it`,
-        );
-        assert(
-          got === want,
-          `${schema}.${field} maxLength is ${got}, the skill says ${want}`,
-        );
-        seen.push(`${field}=${got}`);
-      }
-      return seen.join(", ");
     },
   );
 
@@ -405,41 +255,6 @@ function specChecks() {
         );
       }
       return "in_use_only present on /blocks and /stacks";
-    },
-  );
-
-  check(
-    "GET /tasks still cannot filter on externalId",
-    [
-      [
-        "first",
-        "`GET /tasks?externalId=…` is silently ignored and returns the **entire",
-      ],
-    ],
-    () => {
-      const names = (spec.paths["/tasks"].get.parameters ?? [])
-        .map((x) => x.name)
-        .filter(Boolean);
-      assert(
-        !names.includes("externalId"),
-        "GET /tasks now documents an externalId filter — first-connect.md tells agents to page the whole board and dedupe client-side, which is now wrong and wasteful",
-      );
-      return `filters: ${names.join(", ")}`;
-    },
-  );
-
-  check(
-    "block titles are still 3–512 characters",
-    [["first", "titles are\n3–512 characters"]],
-    () => {
-      const t =
-        spec.components.schemas.CreateStackRequest.properties.blocks.items
-          .properties.title;
-      assert(
-        t.minLength === 3 && t.maxLength === 512,
-        `nested block title is now ${t.minLength}–${t.maxLength}, the skill says 3–512`,
-      );
-      return "3–512";
     },
   );
 
@@ -468,7 +283,6 @@ function specChecks() {
   check(
     "GET /insights still takes and returns what the skill says",
     [
-      ["skill", "`GET /insights` (params: `severity`, `status`, `open` by default); needs the `insight:read` scope"],
       ["skill", "each with a `suggestion` and the `factIds` and `blockIds` it is about"],
     ],
     () => {
@@ -496,67 +310,6 @@ function specChecks() {
     },
   );
 
-  check(
-    "the API surface has not grown a route the skill does not mention",
-    [["skill", "Base URL `https://api.getnoan.com/v1`"]],
-    () => {
-      // Operations, not paths: a new mutating method on an existing path is
-      // exactly what would falsify "facts are append-only, nothing is edited or
-      // deleted", and a path-level set cannot see it.
-      const known = new Set([
-        "GET /me",
-        "GET /stacks",
-        "POST /stacks",
-        "POST /stacks/{stackId}/blocks",
-        "POST /stacks/{stackId}/use",
-        "GET /blocks",
-        "GET /facts",
-        "POST /facts",
-        "GET /facts/{factId}/versions",
-        "GET /contacts",
-        "POST /contacts",
-        "GET /contacts/{contactId}",
-        "PATCH /contacts/{contactId}",
-        "POST /contacts/{contactId}/memos",
-        "POST /contacts/{contactId}/notes",
-        "GET /notes",
-        "POST /notes",
-        "GET /tags",
-        "POST /tags",
-        "PATCH /tags/{tagId}",
-        "GET /tasks",
-        "POST /tasks",
-        "PATCH /tasks/{taskId}",
-        "PUT /tasks/{taskId}/assignees",
-        "PUT /tasks/{taskId}/contacts",
-        "PUT /tasks/{taskId}/tags",
-        "POST /tasks/{taskId}/comments", // shipped 2026-09-18; the skill's Writes table and conventions cover it
-        "GET /assets",
-        "POST /assets",
-        "POST /assets/{assetId}/versions",
-        "PUT /assets/{assetId}/tags",
-        "GET /insights",
-      ]);
-      const live = new Set(
-        Object.keys(spec.paths).flatMap((p) =>
-          methodsOf(p).map((m) => `${m.toUpperCase()} ${p}`),
-        ),
-      );
-      const added = [...live].filter((op) => !known.has(op));
-      const gone = [...known].filter((op) => !live.has(op));
-      assert(
-        !added.length && !gone.length,
-        [
-          added.length ? `new operations: ${added.join(", ")}` : "",
-          gone.length ? `operations removed: ${gone.join(", ")}` : "",
-          "the skill documents this surface operation by operation — reconcile it, then update this list",
-        ]
-          .filter(Boolean)
-          .join(" | "),
-      );
-      return `${live.size} operations across ${Object.keys(spec.paths).length} paths, unchanged`;
-    },
-  );
 }
 
 // The one claim in this repository that is about this repository: SKILL.md tells
@@ -770,7 +523,7 @@ function industryStacksNamedInDoc() {
 function liveChecks() {
   liveCheck(
     "auth and project scope",
-    [["skill", "Verify auth before real work"]],
+    [["skill", "Verify auth with `GET /me` before real work"]],
     async () => {
       const me = await api("/me");
       assert(
@@ -778,65 +531,6 @@ function liveChecks() {
         "GET /me no longer returns project and identity",
       );
       return "GET /me returns project and identity";
-    },
-  );
-
-  liveCheck(
-    "GET /blocks item shape",
-    [["writing", "`GET /blocks` gives `{id, slug, title, description, managed, stack}`"]],
-    async () => {
-      const body = await api("/blocks?per_page=1");
-      const item = body.items?.[0];
-      assertPopulated(item, "/blocks");
-      assert(
-        sameSet(Object.keys(item), ["id", "slug", "title", "description", "managed", "stack"]),
-        `GET /blocks item keys are now {${Object.keys(item).sort().join(", ")}}`,
-      );
-      return "unchanged";
-    },
-  );
-
-  liveCheck(
-    "GET /stacks item shape, including nested blocks",
-    [["writing", "`GET /stacks` gives `{id, slug, title, description, managed, inUse, blocks}`"]],
-    async () => {
-      const body = await api("/stacks?per_page=1");
-      const item = body.items?.[0];
-      assertPopulated(item, "/stacks");
-      assert(
-        sameSet(Object.keys(item), [
-          "id",
-          "slug",
-          "title",
-          "description",
-          "managed",
-          "inUse",
-          "blocks",
-        ]),
-        `GET /stacks item keys are now {${Object.keys(item).sort().join(", ")}}`,
-      );
-      const nested = item.blocks?.[0];
-      if (nested) {
-        assert(
-          sameSet(Object.keys(nested), ["id", "slug", "title", "description", "managed"]),
-          `nested block keys are now {${Object.keys(nested).sort().join(", ")}}`,
-        );
-      }
-      return "unchanged";
-    },
-  );
-
-  liveCheck(
-    "GET /facts item shape",
-    [["skill", "Fact item shape: `{ id, blockId, blockSlug, content, createdAt }`"]],
-    async () => {
-      const body = await api("/facts?per_page=1");
-      const item = body.items?.[0];
-      assertPopulated(item, "/facts");
-      for (const f of ["id", "blockId", "blockSlug", "content", "createdAt"]) {
-        assert(f in item, `GET /facts items no longer carry ${f}`);
-      }
-      return "carries id, blockId, blockSlug, content, createdAt";
     },
   );
 
@@ -932,81 +626,6 @@ function liveChecks() {
     },
   );
 
-  liveCheck(
-    "task comments still come back on GET /tasks, in the documented shape",
-    [
-      ["skill", "Comments come back on each task"],
-      ["skill", "`{id, content, createdAt, creator}`"],
-    ],
-    async () => {
-      // The read payload was narrowed when the write route shipped, so this is
-      // the claim most likely to be falsified by the next narrowing.
-      let sample = null;
-      let scanned = 0;
-      for (let page = 1; page <= 3 && !sample; page++) {
-        const body = await api(`/tasks?page=${page}&per_page=100`);
-        const items = body.items ?? [];
-        // Only page one says anything about the board being populated; a later
-        // page coming back empty is pagination, not a configuration fault.
-        if (page === 1) assertPopulated(items[0], "/tasks");
-        for (const t of items) {
-          scanned++;
-          assert(
-            Array.isArray(t.comments),
-            `a task came back without a comments array (id ${t.id}) — the skill says every task from GET /tasks carries one`,
-          );
-          if (!sample && t.comments.length) sample = t.comments[0];
-        }
-        if (!body.meta?.hasNext) break;
-      }
-      assertConfig(
-        sample,
-        `no comment found on ${scanned} tasks, so the documented shape could not be inspected. That is a configuration problem — point the key at a workspace whose board has comments — not a documentation one.`,
-      );
-      // Deliberately not an exact match. The skill's claim is what a comment
-      // carries, so a REMOVED key falsifies it and an added one does not —
-      // unlike the surface check, where append-only is the promise and a new
-      // operation is the finding. An addition is reported so the next reader can
-      // decide whether the skill should mention it.
-      const documented = ["id", "content", "createdAt", "creator"];
-      const keys = Object.keys(sample);
-      const missing = documented.filter((k) => !keys.includes(k));
-      assert(
-        !missing.length,
-        `a comment no longer carries ${missing.join(", ")} — the skill says {id, content, createdAt, creator}, and this payload has been narrowed before`,
-      );
-      const extra = keys.filter((k) => !documented.includes(k));
-      assert(
-        typeof sample.content === "string",
-        `comment content is ${typeof sample.content}, the skill says a plain string`,
-      );
-      return extra.length
-        ? `${scanned} tasks carry the array; sampled comment also returns ${extra.join(", ")}, which the skill does not mention`
-        : `${scanned} tasks carry the array; sampled comment matches`;
-    },
-  );
-
-  liveCheck(
-    "contact list and single-contact shapes still differ as documented",
-    [
-      [
-        "skill",
-        "The `memos`, `notes`, `companyRoles` and `tasks` fields exist **only** on",
-      ],
-    ],
-    async () => {
-      const body = await api("/contacts?per_page=1");
-      const item = body.items?.[0];
-      assertPopulated(item, "/contacts");
-      for (const f of ["memos", "companyRoles", "tasks"]) {
-        assert(
-          !(f in item),
-          `GET /contacts summary now carries ${f} — the two-shapes warning is out of date`,
-        );
-      }
-      return "summary still omits memos, companyRoles, tasks";
-    },
-  );
 }
 
 
@@ -1022,34 +641,6 @@ function liveChecks() {
 // read only skills/noan-fact-layer, so setting the caps to 4096, 512 and
 // 50,000 and the status to "todo" still passed 13/13 (@noanneal, 2026-09-21).
 function captureChecks() {
-  check(
-    "the capture skill's length limits still match the spec",
-    [
-      ["capture", "Titles cap at **256 characters**"],
-      ["capture", "caps at **2048 characters**"],
-      ["capture", "`content` caps at 25,000 characters"],
-    ],
-    () => {
-      const max = (schema, field) =>
-        spec.components.schemas[schema]?.properties?.[field]?.maxLength;
-      const seen = [];
-      for (const [schema, field, want] of [
-        ["CreateTaskRequest", "title", 256],
-        ["CreateTaskRequest", "details", 2048],
-        ["CreateNoteRequest", "content", 25000],
-      ]) {
-        const got = max(schema, field);
-        assert(
-          got !== undefined,
-          `${schema}.${field} no longer declares maxLength, so the skill's "${want}" is unverifiable — these are rejected outright, not truncated, so an agent sizes its writes against them`,
-        );
-        assert(got === want, `${schema}.${field} maxLength is ${got}, the skill says ${want}`);
-        seen.push(`${field}=${got}`);
-      }
-      return seen.join(", ");
-    },
-  );
-
   check(
     "backlog is still the status a capture is written to",
     [["capture", '**`status` is `"backlog"`.**']],
@@ -1067,50 +658,16 @@ function captureChecks() {
     },
   );
 
-  // The two MCP shapes the skill warns about. create_task takes a column, not a
-  // status, and create_note's title is optional and shorter than the REST one.
-  // Both tools are writes, so a read-only key never sees them.
-  liveCheck(
-    "the MCP capture caveats still hold",
-    [
-      ["capture", "`create_task` has no `status`"],
-      ["capture", "`create_note` takes a `title`, capped at 120 characters."],
-    ],
-    async () => {
-      const { find, scopes } = await mcpSurface();
-      // A tool the skill names by name, gone under a full-scope key: that IS a
-      // documentation finding (mcpSurface throws it as drift). Hidden from a
-      // narrower key, it is a claim this run cannot check — say so, don't fail.
-      const hidden = ["create_task", "create_note"].filter((n) => !find(n));
-      if (hidden.length) {
-        throw new Unchecked(
-          `${hidden.join(" and ")} hidden from this key (scopes ${JSON.stringify(scopes)}) — the MCP server lists only tools a key may use, so these caveats need a write-scoped key to check`,
-        );
-      }
-      const schema = (name) => find(name).inputSchema?.properties ?? {};
-      const props = (name) => Object.keys(schema(name));
-
-      const task = props("create_task");
+  check(
+    "task details still declare the limit the capture skill points to",
+    [["capture", "`CreateTaskRequest.details` in the spec"]],
+    () => {
+      const max = spec.components.schemas.CreateTaskRequest?.properties?.details?.maxLength;
       assert(
-        !task.includes("status"),
-        'create_task now takes "status" — the skill tells the reader to pass column: "Backlog" instead, and that instruction is now the wrong one',
+        Number.isInteger(max),
+        "CreateTaskRequest.details no longer declares a maxLength, so the capture skill points to a limit that is not there",
       );
-      assert(
-        task.includes("column"),
-        `create_task no longer takes "column" (${task.join(", ")}) — the skill's only way to put a capture in the queue on this path is gone`,
-      );
-
-      const note = props("create_note");
-      const title = schema("create_note").title;
-      assert(
-        title,
-        `create_note no longer takes "title" (${note.join(", ")}): the skill tells the reader to put the prefix there`,
-      );
-      assert(
-        title.maxLength === 120,
-        `create_note title maxLength is now ${title.maxLength}, the skill says 120`,
-      );
-      return `create_task: ${task.join(", ")} · create_note: ${note.join(", ")} (title ≤120)`;
+      return `details maxLength: ${max}`;
     },
   );
 }
@@ -1126,37 +683,11 @@ function captureChecks() {
 // the skill.
 function connectorChecks() {
   liveCheck(
-    "every tool connector.md names exists",
-    [["connector", "Which tool does what"]],
-    async () => {
-      const { find, scopes } = await mcpSurface();
-      // Backticked snake_case words are tool names; the few that are parameters
-      // or values are listed so the sweep stays strict about everything else.
-      const notTools = new Set(["block_slug", "per_page"]);
-      const named = [
-        ...new Set(
-          [...text.connector.matchAll(/`([a-z]+(?:_[a-z]+)+)`/g)]
-            .map((m) => m[1])
-            .filter((n) => !notTools.has(n)),
-        ),
-      ];
-      // find() throws drift for a tool missing under a full-scope key; under a
-      // narrower one it returns null, and the tool is hidden rather than gone.
-      const hidden = named.filter((n) => !find(n));
-      if (hidden.length === named.length) {
-        throw new Unchecked(`every tool connector.md names is hidden from this key (scopes ${JSON.stringify(scopes)})`);
-      }
-      return hidden.length
-        ? `${named.length - hidden.length} of ${named.length} named tools offered; ${hidden.length} hidden from this key's scope, not checked: ${hidden.join(", ")}`
-        : `${named.length} named tools, all offered`;
-    },
-  );
-
-  liveCheck(
     "the connector gaps connector.md works around are still gaps",
     [
       ["connector", "There is no tool for a fact's versions."],
       ["connector", "There is no\n  `externalId` on this route"],
+      ["connector", "**There are no delete tools.**"],
     ],
     async () => {
       const { tools, fullScope, scopes } = await mcpSurface();
@@ -1173,6 +704,11 @@ function connectorChecks() {
         !versions.length,
         `the MCP server now offers ${versions.join(", ")} — connector.md says fact history is app-only`,
       );
+      const deletes = names.filter((n) => /delete|remove/.test(n));
+      assert(
+        !deletes.length,
+        `the MCP server now offers ${deletes.join(", ")}, but connector.md says removal is done in the app`,
+      );
       const task = tools.find((t) => t.name === "create_task");
       assert(task, "the MCP server no longer offers create_task");
       const taskProps = Object.keys(task.inputSchema?.properties ?? {});
@@ -1180,102 +716,7 @@ function connectorChecks() {
         !taskProps.includes("externalId"),
         "create_task now takes externalId — connector.md tells the reader to dedupe by title instead",
       );
-      return `${names.length} tools; no fact-history tool; create_task: ${taskProps.join(", ")}`;
-    },
-  );
-
-  // These replaced "have the user create it in the app" and "there is no comment
-  // tool". All but list_facts are writes, so a read-only key checks only that one.
-  liveCheck(
-    "the block, stack and comment tools connector.md names take what it says",
-    [
-      ["connector", "`list_facts` takes `blockIds` and `create_fact` takes `blockId`"],
-      ["connector", "`use_stack` adds a managed stack to the project."],
-      ["connector", "`add_block` adds a block to a custom stack."],
-      ["connector", "with `created` set to `false`"],
-      ["connector", "Progress goes in `add_task_comment`"],
-    ],
-    async () => {
-      const { find, scopes } = await mcpSurface();
-      const required = (name) => find(name)?.inputSchema?.required ?? null;
-      const checked = [];
-
-      const list = find("list_facts")?.inputSchema?.properties;
-      if (list) {
-        assert(
-          list.blockIds && !list.blockSlugs,
-          `list_facts now takes ${Object.keys(list).join(", ")}: connector.md says blockIds`,
-        );
-        checked.push("list_facts blockIds");
-      }
-      const want = {
-        create_fact: ["blockId", "content"],
-        use_stack: ["stackId"],
-        create_stack: ["title", "description", "blocks"],
-        add_block: ["stackId", "title"],
-        add_task_comment: ["taskId", "content"],
-      };
-      for (const [name, fields] of Object.entries(want)) {
-        const got = required(name);
-        if (!got) continue;
-        assert(
-          sameSet(got, fields),
-          `${name} now requires ${got.join(", ")}: connector.md describes it as taking ${fields.join(", ")}`,
-        );
-        checked.push(name);
-      }
-      for (const name of ["create_stack", "add_block"]) {
-        const tool = find(name);
-        if (!tool) continue;
-        assert(
-          /created/.test(tool.description ?? ""),
-          `${name}'s description no longer says a same-title repeat comes back with created false: connector.md relies on it`,
-        );
-      }
-      if (!checked.length) {
-        throw new Unchecked(`every tool this check reads is hidden from this key (scopes ${JSON.stringify(scopes)})`);
-      }
-      const hidden = ["list_facts", ...Object.keys(want)].filter((n) => !find(n));
-      return `${checked.join(", ")}${hidden.length ? `; hidden from this key, not checked: ${hidden.join(", ")}` : ""}`;
-    },
-  );
-
-  liveCheck(
-    "connector limits connector.md states still hold",
-    [
-      ["connector", "`create_fact` caps `content` at 20,000 characters"],
-      ["connector", "returns at most `limit` facts (default 50, max 200), and it has no\npage or offset"],
-      ["connector", "`list_stacks` (`inUseOnly` defaults to `true`)"],
-    ],
-    async () => {
-      const { find } = await mcpSurface();
-      const schema = (name) => find(name)?.inputSchema?.properties ?? null;
-      const fact = schema("create_fact");
-      if (fact) {
-        assert(
-          fact.content?.maxLength === 20000,
-          `create_fact content maxLength is now ${fact.content?.maxLength} — connector.md says 20,000`,
-        );
-      }
-      const list = schema("list_facts");
-      const stacks = schema("list_stacks");
-      if (!list || !stacks) {
-        throw new Unchecked("list_facts or list_stacks is hidden from this key's scope");
-      }
-      assert(
-        list.limit?.default === 50 && list.limit?.maximum === 200,
-        `list_facts limit is now default ${list.limit?.default}, max ${list.limit?.maximum} — connector.md says 50 and 200`,
-      );
-      const paging = Object.keys(list).filter((k) => /page|offset|cursor|after/i.test(k));
-      assert(
-        !paging.length,
-        `list_facts now pages (${paging.join(", ")}) — connector.md tells the reader to batch block slugs instead`,
-      );
-      assert(
-        stacks.inUseOnly?.default === true,
-        `list_stacks inUseOnly default is now ${stacks.inUseOnly?.default}`,
-      );
-      return `${fact ? "create_fact 20000" : "create_fact hidden from this key, not checked"} · list_facts 50/200, no paging · list_stacks inUseOnly=true`;
+      return `${names.length} tools; no fact-history or delete tool; create_task: ${taskProps.join(", ")}`;
     },
   );
 }

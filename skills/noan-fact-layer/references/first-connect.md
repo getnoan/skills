@@ -8,8 +8,8 @@ The goal: the first time the user opens the NOAN app, it is already full of
 their own verified truth. Never leave them staring at an empty workspace.
 
 **Connected through tools, not a key** (Claude, ChatGPT or another chat app)?
-The sequence is the same, but the connector cannot create stacks or blocks and
-reads the user's documents through the chat app's own connectors. Read the
+The sequence is the same, but it reads the user's documents through the chat
+app's own connectors. Read the
 "First connect, on this route" section of `connector.md` alongside this one.
 
 ## Step 0 — Preflight, then stop
@@ -82,9 +82,9 @@ they bought the product to fix.
 
 Draft the stack → block structure and show it before writing anything.
 Follow the rules in `writing-facts.md` (granularity, descriptions, naming) —
-they are load-bearing. Note what a description can't do: it is set on create,
-no read endpoint returns it, and an agent grounding later sees only titles and
-fact content. Anything a future reader must know belongs in the fact.
+they are load-bearing. Note what a description can't do: it is set on create
+and never updated, and an agent grounding later reads the facts, not the
+descriptions. Anything a future reader must know belongs in the fact.
 
 Start from "What a fact layer should cover" there — the seven areas most
 businesses need answered — then shape the draft to *this* business. For an
@@ -101,18 +101,13 @@ in each, with counts. Get a single explicit yes. Then write.
 
 ## Step 4 — Write, block by block
 
-Create stacks with their blocks via `POST /stacks` — on this endpoint every
-nested block needs `title` **and** `description` (both required; titles are
-3–512 characters). Then fill each block with `POST /facts`.
+Create stacks with their blocks via `POST /stacks`, then fill each block with
+`POST /facts`.
 
-**Take the block ids from the create response; never construct a slug.** The
-`201` returns `{"stack": {id, slug, title, description, managed, blocks[]}}`,
-and each entry in `blocks[]` carries its `id` and the generated `slug` — which
-will be prefixed and unlovely, e.g.
-`c4e19a7b-clinical-services-5f2dd-orthopaedic-surgery`. `POST /facts` wants
-the `id`, as `blockId`. Guessing a tidy slug from the title is the
-single easiest way to make this step fail, and it fails quietly: the fact posts
-against nothing you can find, or the call 404s on a slug that was never real.
+**Take the block ids from the create response; never construct a slug.**
+Guessing a tidy slug from the title is the single easiest way to make this step
+fail, and it fails quietly: the fact posts against nothing you can find, or the
+call 404s on a slug that was never real.
 
 Remember: **`POST /facts` replaces the block's content wholesale.** Compose
 the complete content for a block in memory and post it once. Never post a
@@ -127,16 +122,12 @@ Write only **verified** claims. Hold inferred ones for the hand-off list.
 ## Step 5 — Record the gaps as work, not prose
 
 For every gap, `POST /tasks`: what's missing, why an agent will need it, and
-where the answer probably lives. Keep `details` under 2048 characters — it is
-rejected, not truncated, above that; put a long rationale in `POST /notes`
-(25,000) and reference it.
+where the answer probably lives. Put a long rationale in a note
+(`POST /notes`) and reference it from the task.
 
-Set `externalId` (e.g. `seed-gap-<block-slug>`), but **do the dedupe yourself**.
-Nothing enforces uniqueness on it, and the filter you would reach for does not
-exist: `GET /tasks?externalId=…` is silently ignored and returns the **entire
-board** at `200`, so a re-run that trusts it sees a long list of matches that
-match nothing. `GET /tasks` does return `externalId` on each task, so page the
-board (`per_page=100`) and compare client-side before creating.
+Set `externalId` (e.g. `seed-gap-<block-slug>`), and **check it before
+creating**: nothing enforces uniqueness on it, so a re-run that skips the check
+doubles the list.
 
 This turns "your workspace is incomplete" from a criticism into a to-do list —
 and it is what brings the user back on day two.
@@ -170,10 +161,8 @@ output is grounded in them" while the seeding is fresh.
 - Never write an unlabelled inference.
 - Never post a partial block.
 - Be idempotent: before creating a stack or block, check for a near-twin by
-  **title** — `GET /stacks?title=…`, `GET /blocks?title=…`, a case-insensitive
-  substring match. Don't check by slug: `?slug=` is exact-match, and for a
-  block you haven't created yet you cannot know the generated slug, so it
-  answers 0 for things that exist. The API backstops you here — a duplicate
-  stack title, or a duplicate block title within a stack, is a `409` conflict
-  rather than a second copy — but a `409` mid-run is a stall, not a plan.
+  **title** (`GET /stacks?title=…`, `GET /blocks?title=…`), not by slug: for a
+  block you haven't created yet you cannot know the generated slug. The API
+  answers a duplicate title with a `409` rather than a second copy, but a `409`
+  mid-run is a stall, not a plan.
   Re-running this sequence must not double the workspace.

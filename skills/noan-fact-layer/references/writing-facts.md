@@ -256,13 +256,8 @@ roughly right did.
 Every stack and block gets a description, written on create and never
 afterwards — there is no update route for either.
 
-**Know what a description can and cannot do.** Reads return one:
-`GET /stacks` gives `{id, slug, title, description, managed, inUse, blocks}`,
-its nested blocks give `{id, slug, title, description, managed}` — enough to
-name a block without a second call — and `GET /blocks` gives
-`{id, slug, title, description, managed, stack}`.
-A create response carries it too: `POST /stacks` returns the description
-on the stack and on each nested block.
+**Know what a description can and cannot do.** `GET /stacks` and `GET /blocks`
+return it, enough to name a block without reading its fact.
 
 But a description is written once, on create, and never afterwards: there is no
 update route for a stack or a block. So it is a label on the container, fixed at
@@ -302,8 +297,7 @@ you create lands on something like
 `c4e19a7b-clinical-services-5f2dd-orthopaedic-surgery`
 (`<stack-id-prefix>-<stack-title>-<random>-<block-title>`). Short, clean slugs
 like `ideal-customer` belong to NOAN's managed template blocks and are not what
-your writes produce. (`customer-profile`, the slug the OpenAPI examples use, is
-a placeholder — it matches no block in the live catalogue.)
+your writes produce.
 
 So the title is the whole lever: it's what the slug derives from and what
 `GET /blocks?title=` searches. Write it plain and hyphenatable.
@@ -368,7 +362,8 @@ An area the checklist doesn't name — a channel, a partner programme, a
 franchise model — gets the same treatment: when you create it, decide what it
 owns and what it defers to, and put that in the owning block's own fact, where a
 later agent can actually read it. Not in the stack or block description: those
-are set on create and no read endpoint returns them (see Descriptions above).
+are set on create, never updated, and not what an agent reads when it grounds on
+facts (see Descriptions above).
 
 These apply to custom stacks too, and matter more there: a custom
 `Enterprise Sales` stack must defer to `Sales` on process and to `Pricing` on
@@ -395,20 +390,13 @@ destroyed it. If you kept the fact `id` from before the write, walk
 any version id in a chain resolves the whole chain, so an id captured earlier
 still works after the write.
 
-Don't guard the amended content against a length limit. Facts have no enforced
-ceiling in practice — blocks well past 30,000 characters post fine — and since
-this pattern re-posts the whole block every time, content grows monotonically
-by design. A guard set to a documented-looking number would
-start silently refusing writes to exactly the blocks that matter most.
-
 ## Provenance and honesty
 
 - Write only what the company asserts or the user confirmed. If you
   reasoned your way to a claim, flag it to the user before writing.
 - Missing information becomes a task (`POST /tasks`), never a
   plausible-looking fact. A confidently wrong fact is worse than an absent
-  one — every downstream agent grounds on it. Task `details` caps at 2048
-  characters and is rejected, not truncated, above it: for a longer handoff
-  `POST /notes` (25,000) and reference the note from `details`.
+  one — every downstream agent grounds on it. For a handoff longer than
+  `details` takes, write a note (`POST /notes`) and reference it from `details`.
 - Convert relative dates ("last quarter", "next month") to absolute ones at
   write time; facts outlive the conversation that produced them.
