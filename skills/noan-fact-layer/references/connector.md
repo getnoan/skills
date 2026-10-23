@@ -41,8 +41,8 @@ them.
 ## Where the connector differs
 
 **Read the whole fact base before calling a fact missing.** `list_facts`
-returns at most `limit` facts per call, and its description says how to read
-the rest. SKILL.md's rule still applies: never call a
+returns at most `limit` facts per call, and its `offset` parameter says how to
+read the rest. SKILL.md's rule still applies: never call a
 fact missing until you have read the full fact base.
 
 **`search_knowledge` finds; it does not prove absence.** It is semantic and
