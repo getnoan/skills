@@ -1,7 +1,7 @@
 # First connect — seeding a new NOAN workspace
 
 Follow this sequence when auth succeeds but the workspace is empty or
-near-empty (`GET /facts?per_page=1` → `meta.totalItems` < 10). Do **not** run
+near-empty (`GET /facts?per_page=1` → `meta.totalItems` < 15). Do **not** run
 it against a populated workspace — there, ground normally per SKILL.md.
 
 The goal: the first time the user opens the NOAN app, it is already full of
