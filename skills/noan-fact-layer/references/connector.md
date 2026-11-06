@@ -91,9 +91,8 @@ is the brief.
 
 Follow `first-connect.md` with these substitutions:
 
-- **Step 0.** `get_me`, then `list_stacks`. There is no fact count: an empty
-  or near-empty `list_facts` over the in-use blocks is the empty-workspace
-  signal.
+- **Step 0.** `get_me`, then `list_stacks`. `isNewProject` on `get_me` says
+  whether the workspace is new.
 - **Step 1 — sources.** In a chat app the user's material usually lives in
   that app's own connectors — Google Drive, Notion and the like —
   or arrives as attachments. Ask which they have connected and read through
