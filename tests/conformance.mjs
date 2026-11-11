@@ -202,26 +202,22 @@ function specChecks() {
   );
 
   check(
-    "managed stacks reject added blocks",
+    "managed stacks accept added blocks",
     [
       [
         "writing",
-        "`POST /stacks/{stackId}/blocks` on a managed stack is refused",
+        "`POST /stacks/{stackId}/blocks` adds a block to a managed stack",
       ],
-      ["skill", "You cannot add a block to a managed stack"],
+      ["skill", "You can add a block to a managed stack"],
+      ["connector", "`add_block` adds a block to a stack, managed or custom"],
     ],
     () => {
       const op = spec.paths["/stacks/{stackId}/blocks"].post;
       assert(
-        op.responses["403"],
-        "POST /stacks/{stackId}/blocks no longer documents 403",
+        /existing stack, managed or custom/i.test(op.description ?? ""),
+        "POST /stacks/{stackId}/blocks no longer says it works on managed stacks, re-check before the skill keeps saying it",
       );
-      const prose = `${op.description ?? ""} ${spec.paths["/stacks"].post.description ?? ""}`;
-      assert(
-        /managed stacks? cannot be (created or )?modified/i.test(prose),
-        "the spec no longer says managed stacks cannot be modified — re-check before the skill keeps saying it",
-      );
-      return "403 documented; spec still says managed stacks cannot be modified";
+      return "spec says blocks can be added to managed and custom stacks";
     },
   );
 
