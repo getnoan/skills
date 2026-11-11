@@ -259,6 +259,24 @@ function specChecks() {
   );
 
   check(
+    "first connect still knows when a workspace is new",
+    [
+      ["skill", "read `isNewProject` from the `GET /me` response"],
+      ["first", "`GET /me` → `isNewProject` is true"],
+    ],
+    () => {
+      const props =
+        spec.paths["/me"].get.responses["200"].content["application/json"]
+          .schema.properties ?? {};
+      assert(
+        props.isNewProject?.type === "boolean",
+        "GET /me no longer returns isNewProject — SKILL.md and first-connect.md read it to decide whether to seed",
+      );
+      return "isNewProject present on GET /me";
+    },
+  );
+
+  check(
     "a managed stack is added to the project through the API",
     [
       ["writing", "`POST /stacks/{stackId}/use` adds it, with no body"],

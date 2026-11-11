@@ -119,17 +119,18 @@ curl -s https://api.getnoan.com/v1/me -H "Authorization: Bearer $NOAN_API_KEY"
 
 ## Before grounding — check workspace state
 
-After auth succeeds, check `GET /facts?per_page=1` and read `meta.totalItems`.
-(On the connector route there is no count; `connector.md` says what to read
-instead.)
+After auth succeeds, read `isNewProject` from the `GET /me` response.
+(On the connector route, it is on `get_me`.)
 
-- **Fewer than ~10 facts** → this is a new or empty workspace. Do not attempt
+- **`isNewProject` is true** → this is a new or empty workspace. Do not attempt
   to ground a task against an empty fact layer ("no facts found" is useless to
   a new user). Instead, read `references/first-connect.md` (or fetch
   <https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/first-connect.md>
   if this skill was installed as a single file) and follow it: offer to seed
   the workspace from the company's own sources, then hand it back for review.
-- **Otherwise** → ground normally against `items[].content`.
+- **`isNewProject` is false** → ground normally against the facts (`GET /facts`, `items[].content`).
+- **`isNewProject` is missing** → the key can't read facts. Tell the user it
+  needs fact read access; don't seed and don't ground.
 
 ## Reads — safe, no permission needed
 
