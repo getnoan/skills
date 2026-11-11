@@ -3,7 +3,10 @@ name: checks
 on:
   pull_request:
   schedule:
+    # GitHub disables scheduled workflows after 60 days without repository
+    # activity. Re-enable it, or run it manually, after a long pause.
     - cron: "41 6 * * 1"
+  workflow_dispatch:
 
 concurrency:
   group: checks-${{ github.event.pull_request.number || github.run_id }}
