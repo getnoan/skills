@@ -2,8 +2,11 @@ name: checks
 
 on:
   pull_request:
-  push:
-    branches: [main]
+  schedule:
+    # GitHub disables scheduled workflows after 60 days without repository
+    # activity. Re-enable it, or run it manually, after a long pause.
+    - cron: "41 6 * * 1"
+  workflow_dispatch:
 
 concurrency:
   group: checks-${{ github.event.pull_request.number || github.run_id }}
@@ -14,6 +17,7 @@ permissions:
 
 jobs:
   markdown-lint:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,6 +53,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   gitleaks:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     env:
       GITLEAKS_VERSION: 8.30.1
