@@ -69,8 +69,8 @@ things to watch:
   `inUseOnly: false` shows the managed and industry stacks it can add. Check
   these before creating anything custom.
 - `create_stack` creates a custom stack with its blocks, and returns their ids.
-- `add_block` adds a block to a custom stack. Managed stacks accept no new
-  blocks.
+- `add_block` adds a block to a stack, managed or custom. Prefer a managed
+  stack that fits over creating a custom one.
 
 **Insights point at blocks and facts by id.** A suggestion from
 `list_insights` is a proposal: acting on it is a write, so it waits for the

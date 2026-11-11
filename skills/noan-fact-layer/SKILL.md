@@ -173,10 +173,11 @@ have read the full fact base.**
 ## Structure — what a good fact layer looks like
 
 Managed stacks are NOAN's starting map of a business, present in every
-workspace and not modifiable. Custom stacks and blocks are how a workspace
-takes the shape of the business it belongs to — expected, not exceptional. You
-cannot add a block to a managed stack, so a topic neither the generic stacks nor
-an industry stack carries is a custom stack by construction.
+workspace, with blocks NOAN maintains. Custom stacks and blocks are how a
+workspace takes the shape of the business it belongs to — expected, not
+exceptional. You can add a block to a managed stack for a topic that fits it,
+so a custom stack is for a subject neither the generic stacks nor an industry
+stack carries.
 
 **The map is wider than the generic stacks.** It also carries industry ones —
 `Restaurant`, `Fund`, `Agency`, `Consulting`, `Education`, `Real Estate` and

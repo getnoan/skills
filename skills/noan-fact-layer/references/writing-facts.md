@@ -12,10 +12,10 @@ discipline that keeps that shape from eroding.
 
 **Stack** — a subject area of the business, and the unit an agent routes on. It
 is a container of topics and is never empty. Two kinds exist: *managed* stacks,
-NOAN's opinionated starting map of a business, present in every workspace and
-fixed; and *custom* stacks, created by you for anything beyond that map. A
-stack from `GET /stacks` says which it is in its `managed` field, and
-`custom_only=true` filters to the ones you can add to.
+NOAN's opinionated starting map of a business, present in every workspace, with
+blocks NOAN maintains; and *custom* stacks, created by you for anything beyond
+that map. A stack from `GET /stacks` says which it is in its `managed` field,
+and `custom_only=true` filters to the custom ones. You can add blocks to both.
 
 **Block** — one topic inside a stack: one coherent truth that is independently
 useful to an agent. A block holds at most one current fact and is addressed by
@@ -26,10 +26,11 @@ a slug the API generates (see Naming below).
 readable in history, but readers see only the latest.
 
 One consequence of the managed/custom split is worth knowing before you plan
-anything: **you cannot add a block to a managed stack.**
-`POST /stacks/{stackId}/blocks` works on custom stacks only. So the moment the
-business needs a topic the managed map doesn't already carry, it is a custom
-stack — by construction, not as a workaround.
+anything: **a topic that fits a managed stack goes in that stack.**
+`POST /stacks/{stackId}/blocks` adds a block to a managed stack as well as a
+custom one. The block belongs to this workspace only, and NOAN's own blocks in
+that stack stay as they are. A custom stack is for a subject the managed map
+doesn't carry at all, not for one extra topic next to a managed stack.
 
 ## What a fact layer should cover
 
@@ -214,9 +215,9 @@ limits the API enforces.
 - **4–12 blocks per stack.** Below four, it often isn't a subject area — fold it
   into a neighbour while you are still planning, which is the only point at which
   folding is free. Where you can't, keep it: a three-block custom stack is the
-  right answer when the natural neighbour is a managed stack you cannot add to,
-  or when the subject is genuinely small but genuinely separate. Past a dozen
-  blocks, a stack has usually become two subjects.
+  right answer when the subject is genuinely small but genuinely separate. When
+  the natural neighbour is a managed stack, add the blocks there instead. Past a
+  dozen blocks, a stack has usually become two subjects.
 - **Most facts run 500–4,000 characters.** Under a couple of hundred, the block
   is a fragment that would sit better inside its neighbour. Past ~6,000, it is
   usually two blocks that have grown together. Nothing enforces this (see The
@@ -237,10 +238,8 @@ by hand and neither is free:
   re-post the original block without it. The original keeps its slug and its
   whole version history; the new block starts with neither, so say in its first
   fact where the content came from. If the outgrown block sits in a *managed*
-  stack, the new half goes in a custom stack —
-  `POST /stacks/{stackId}/blocks` on a managed stack is refused
-  (`403 ResourceNotAllowed`), and a split that assumes otherwise dies halfway
-  with one block already rewritten.
+  stack, the new half can go in that same stack:
+  `POST /stacks/{stackId}/blocks` works on managed stacks too.
 - **Merging.** Copy the content into the neighbour and the original block still
   answers `GET /facts` with its old fact — you have made the duplicate the next
   section forbids. There is no way to remove it. Either leave a pointer fact in
@@ -316,8 +315,8 @@ One consequence worth internalising: because you can't predict a slug, an empty
 slug**, not that there is no such block or fact. Find the block through
 `GET /blocks` by title first, every time, then read and write it by its `id`.
 
-Blocks can only be added to **custom** stacks. Managed stacks cannot be created
-or modified through the API.
+Blocks can be added to **managed and custom** stacks. Managed stacks cannot be
+created through the API, and NOAN's own blocks in them cannot be changed.
 
 ## One truth, one home — no overlap, no contradiction
 
