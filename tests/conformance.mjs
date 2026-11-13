@@ -510,14 +510,6 @@ function slugsNamedInDoc() {
       if (SLUG.test(token)) slugs.add(token);
     }
   }
-  // The industry-stack paragraph names slugs in prose — review found those were
-  // the only cited slugs nothing verified.
-  const prose = text.writing.match(/it carries\s+industry ones[\s\S]*?\n\n/);
-  if (prose) {
-    for (const [, token] of prose[0].matchAll(/`([^`]+)`/g)) {
-      if (SLUG.test(token)) slugs.add(token);
-    }
-  }
   // The Naming section names a managed slug as its example of a short, clean
   // one. Review caught that example being an OpenAPI placeholder matching
   // nothing live, so it gets checked like any other.
@@ -526,12 +518,12 @@ function slugsNamedInDoc() {
   return [...slugs];
 }
 
-function industryStacksNamedInDoc() {
-  const m = text.writing.match(/it carries\s+industry ones[^.]*\./s);
-  if (!m) return [];
-  return [...m[0].matchAll(/`([A-Z][A-Za-z-]*(?: [A-Z][A-Za-z-]*)?)`/g)].map(
-    (x) => x[1],
+function managedStacksNamedInDoc() {
+  const m = text.writing.match(
+    /## What a fact layer should cover[\s\S]*?\n\n(\|[\s\S]*?)\n\n/,
   );
+  if (!m) return [];
+  return [...m[1].matchAll(/^\| \*\*([^*]+)\*\* \|/gm)].map((x) => x[1]);
 }
 
 function liveChecks() {
@@ -550,7 +542,7 @@ function liveChecks() {
 
   liveCheck(
     "every managed slug the skill names still exists and is managed",
-    [["writing", "Those slugs cover the seven generic stacks only"]],
+    [["writing", "The third column is the main blocks, not all of them"]],
     async () => {
       const named = slugsNamedInDoc();
       assert(
@@ -615,13 +607,13 @@ function liveChecks() {
   );
 
   liveCheck(
-    "every industry stack the skill names still exists and is managed",
-    [["writing", "Scan `GET /stacks` for one that matches the business"]],
+    "every managed stack the skill names still exists and is managed",
+    [["writing", "The managed map is eleven stacks"]],
     async () => {
-      const named = industryStacksNamedInDoc();
+      const named = managedStacksNamedInDoc();
       assert(
-        named.length >= 4,
-        `parsed only ${named.length} industry stack names — check the parser against the paragraph`,
+        named.length === 11,
+        `parsed ${named.length} managed stack names, not 11. Check the parser against the table`,
       );
       const stacks = await api("/stacks?per_page=100");
       const titles = new Set(
@@ -630,11 +622,11 @@ function liveChecks() {
       const missing = named.filter((t) => !titles.has(t));
       assertConfig(
         !(missing.length === named.length && named.length > 1),
-        `none of the ${named.length} industry stacks the skill names came back, which is a key that cannot see the managed catalogue rather than ${named.length} stacks disappearing. Fix the key, not the skill.`,
+        `none of the ${named.length} managed stacks the skill names came back, which is a key that cannot see the managed catalogue rather than ${named.length} stacks disappearing. Fix the key, not the skill.`,
       );
       assert(
         !missing.length,
-        `named as managed industry stacks but absent: ${missing.join(", ")}. If the key changed recently, check its scope first.`,
+        `named as managed stacks but absent: ${missing.join(", ")}. If the key changed recently, check its scope first.`,
       );
       return `${named.join(", ")} all present`;
     },
