@@ -136,7 +136,7 @@ After auth succeeds, read `isNewProject` from the `GET /me` response.
 
 `in_use_only=true` limits stacks/blocks to those actually added to this
 project's knowledge base — what you want when grounding. Leave it **off** when
-scanning for an industry stack: the catalogue holds stacks this project has not
+scanning for a home: the catalogue holds stacks this project has not
 adopted, and the filter hides exactly those. If the right home turns out to be
 unadopted, say so and offer to add it with `POST /stacks/{stackId}/use` once
 the user says yes.
@@ -172,36 +172,32 @@ have read the full fact base.**
 
 ## Structure — what a good fact layer looks like
 
-Managed stacks are NOAN's starting map of a business, present in every
-workspace, with blocks NOAN maintains. Custom stacks and blocks are how a
+Managed stacks are NOAN's starting map of a business, with blocks NOAN
+maintains. A new project starts with `Company`; the others are in the catalogue
+and added with `POST /stacks/{stackId}/use`. Custom stacks and blocks are how a
 workspace takes the shape of the business it belongs to — expected, not
 exceptional. You can add a block to a managed stack for a topic that fits it,
-so a custom stack is for a subject neither the generic stacks nor an industry
-stack carries.
+so a custom stack is for a subject no managed stack carries.
 
-**The map is wider than the generic stacks.** It also carries industry ones —
-`Restaurant`, `Fund`, `Agency`, `Consulting`, `Education`, `Real Estate` and
-many more — holding the topics you would otherwise invent a custom stack for.
-Scan `GET /stacks` for one matching the business before deciding anything is
-custom.
+The managed map is eleven stacks. It is a checklist for coverage, not a schema
+to conform to:
 
-Most businesses need these seven areas covered somewhere. It is a checklist for
-coverage, not a schema to conform to:
-
-**Customer** (who we sell to, how the market segments) · **Product** (what we
-sell, what it does, what it costs) · **Brand** (positioning, value proposition,
-tone) · **Sales** (who qualifies, who we turn away, how a deal runs, objections)
-· **Team** (who does what, who decides, hiring) · **Goals** (targets and how
-they're measured) · **Operations** (tooling, policies, recurring processes). Add
-whatever else the business actually runs on — service lines, sites, regions, a
-regulatory regime. For an agentic startup, `references/writing-facts.md` gives
+**Company** (who we are, who runs it, how to reach us) · **Products and
+Services** (what we sell, what it costs, how it works) · **Target Market** (who
+we sell to, how they buy, objections) · **Brand Guidelines** (positioning, tone,
+key messages) · **Customer Proof** (case studies, testimonials) · **Customer
+Policies** (terms, refunds, privacy, security) · **Strategy** (business model,
+goals, metrics, competitors) · **Investors** · **People and HR** · **Operations
+and Tools** (processes, tools, the sales process) · **Agent Rules** (what agents
+may do, approvals, hand-offs). There are no industry stacks: add whatever else
+the business actually runs on (service lines, sites, regions, a regulatory
+regime) as custom. For an agentic startup, `references/writing-facts.md` gives
 six areas to set up first, in order, starting with Product and Delivery.
 
 Check where each already lives before creating anything: the managed map covers
-most of these, and does not always name them the way you would. Team is the trap
-— there is no managed `Team` stack, but leadership, staffing and hiring all have
-managed blocks. `references/writing-facts.md` lists them per area, and names the
-industry stacks worth scanning for.
+most of these, and does not always name them the way you would. People is the
+trap: leadership, the team and hiring live in `Company`, not in `People and
+HR`. `references/writing-facts.md` lists the main blocks per stack.
 
 Write each fact as a reference entry, not an answer: an H1 matching the block
 title, a lead sentence that stands alone out of context, a short body in
@@ -210,9 +206,9 @@ Roughly 4–12 blocks per stack; one plan, persona, segment or site per block; a
 no claim asserted in two places — one truth, one home, and facts that contradict
 each other are worse than a gap.
 
-Long form — the seven areas in full, when to go custom, the fact template, and
-the seam table for boundaries that blur (Customer vs Sales, Brand vs Product,
-Goals vs Sales) — is in `references/writing-facts.md` (or
+Long form — the managed stacks in full, when to go custom, the fact template, and
+the seam table for boundaries that blur (Customer Policies vs Agent Rules,
+Brand Guidelines vs Products and Services, Strategy vs Company) — is in `references/writing-facts.md` (or
 <https://raw.githubusercontent.com/getnoan/skills/main/skills/noan-fact-layer/references/writing-facts.md>
 if this skill was installed as a single file).
 

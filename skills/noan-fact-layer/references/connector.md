@@ -66,7 +66,7 @@ things to watch:
 `writing-facts.md` and wait for the user's yes before any of these:
 
 - `use_stack` adds a managed stack to the project. `list_stacks` with
-  `inUseOnly: false` shows the managed and industry stacks it can add. Check
+  `inUseOnly: false` shows the managed stacks it can add. Check
   these before creating anything custom.
 - `create_stack` creates a custom stack with its blocks, and returns their ids.
 - `add_block` adds a block to a stack, managed or custom. Prefer a managed
@@ -99,7 +99,7 @@ Follow `first-connect.md` with these substitutions:
   those tools. Those are the chat app's connectors, not NOAN's; if the one
   they need isn't connected, they add it in the app, not in NOAN.
 - **Step 3 — architecture.** Prefer homes that already exist: blocks in the
-  in-use stacks, then managed or industry stacks to add with `use_stack`.
+  in-use stacks, then managed stacks to add with `use_stack`.
   Custom stacks are still right when the business needs them. After the
   user's yes, create them with `create_stack` and `add_block`.
 - **Step 4 — write.** Take block ids from `list_stacks` or from the create

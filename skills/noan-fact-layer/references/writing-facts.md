@@ -12,7 +12,7 @@ discipline that keeps that shape from eroding.
 
 **Stack** — a subject area of the business, and the unit an agent routes on. It
 is a container of topics and is never empty. Two kinds exist: *managed* stacks,
-NOAN's opinionated starting map of a business, present in every workspace, with
+NOAN's opinionated starting map of a business, in every project's catalogue, with
 blocks NOAN maintains; and *custom* stacks, created by you for anything beyond
 that map. A stack from `GET /stacks` says which it is in its `managed` field,
 and `custom_only=true` filters to the custom ones. You can add blocks to both.
@@ -34,48 +34,49 @@ doesn't carry at all, not for one extra topic next to a managed stack.
 
 ## What a fact layer should cover
 
-Most businesses need these seven areas answered somewhere. Treat it as a
-checklist for coverage, not a schema to conform to: it tells you what an agent
-will come looking for, not what your stacks have to be called.
+The managed map is eleven stacks, one per area most businesses need answered.
+Treat it as a checklist for coverage, not a schema to conform to: it tells you
+what an agent will come looking for, and where to look first.
 
-| Area | An agent should be able to answer | Managed blocks that already hold it | Usually added as custom |
+| Stack | An agent should be able to answer | Managed blocks that already hold it | Usually added as custom |
 |---|---|---|---|
-| **Customer** | Who we sell to, how the market segments, what each segment cares about | `ideal-customer`, `audience-segments`, `audience-description`, `audience-interests` — stack `Customer` | a block per segment, once four stop being enough |
-| **Product** | What we sell, what each part does, where it's going | `product-list`, `product-features`, `product-strategy`, `product-roadmap`, `product-faq`, `product-case-studies`, `product-discount` — stack `Product` | a `Pricing` stack: one block per tier or service |
-| **Brand** | What we stand for, how we position, how we sound | `brand-positioning`, `value-proposition`, `mission-vision`, `business-impact`, `brand-tone`, `brand-identity`, `brand-experience-principles` — stack `Brand` | rarely anything |
-| **Sales** | Who qualifies, who we turn away, how a deal runs | `sales-customer-profile`, `sales-ICP-triggers`, `sales-buyer-persona`, `sales-buyer-segments`, `sales-process`, `sales-principles`, `sales-objectives-metrics`, `sales-proposal-format` — stack `Sales` | an `Objection Handling` stack: one block per objection |
-| **Team** | Who does what, who decides, how we hire | `operations-leadership-bios`, `business-staffing` — stack `Operations`; `hr-process`, `hr-jobdescription` — stack `Recruiting` | a `Team` stack only for what those four can't hold (decision rights, org shape) — keep its blocks off the topics the managed four own |
-| **Goals** | What we're trying to hit, by when, and how it's measured | `year-goals`, `growth-okrs`, `growth-five-year`, `quarterly-planning`, `growth-metrics`, `growth-gtm-metrics` — stack `Growth` | a `Goals` stack when `Growth` is already being used for marketing only |
-| **Operations** | How the company runs day to day | `contact-details`, `operations-social-handles`, `privacy-policy`, `cookie-policy` — stack `Operations` | tooling, sites, capacity, recurring processes — the managed four cover contact details and policies, nothing else |
+| **Company** | Who we are, where, who runs it, how to reach us | `startup-elevator-pitch`, `company-name`, `origin-story`, `mission-vision`, `operations-leadership-bios`, `person-team`, `contact-details`, `startup-locations`, `hr-process`, `person-open-roles` | a stack per site or region, once `startup-locations` stops being enough |
+| **Products and Services** | What we sell, what it costs, how it works, how to buy it | `product-list`, `product-features`, `commercial-pricing`, `product-how-it-works`, `product-faq`, `product-manual`, `product-integrations`, `process-customer-journey`, `process-booking` | a block per plan, product line or service, in this stack |
+| **Target Market** | Who we sell to, how the market segments, what they need, how they buy | `ideal-customer`, `audience-segments`, `startup-problem`, `customer-objections`, `customer-buying-process`, `commercial-discount-rules` | a block per segment, once one stops being enough |
+| **Brand Guidelines** | How we sound and what we stand for: guidance for how to write, not facts to repeat to a customer | `brand-positioning`, `brand-tone`, `content-principles`, `key-messages`, `brand-look-and-feel` | rarely anything |
+| **Customer Proof** | Who uses us and what they say about it | `product-case-studies`, `agency-testimonials`, `customer-named-customers`, `metric-customer-results`, `metric-reviews-and-ratings` | a block per flagship case study |
+| **Customer Policies** | What customers are told about terms, refunds, shipping, privacy and security | `policy-terms-of-service`, `ecomm-returns`, `ecomm-shipping`, `privacy-policy`, `policy-security`, `risk-regulations` | a block per regulatory regime |
+| **Strategy** | How we make money, what we're aiming for, how it's measured, who we compete with | `monetization-model`, `year-goals`, `growth-turnover`, `metric-metric-definitions`, `research-market`, `competitive-known` | a block per competitor, once one stops being enough |
+| **Investors** | How we're funded, who backs us, what we tell them, the main risks | `startup-fundraising-status`, `startup-investor-update`, `organization-ownership-and-backers`, `risk-key-risks` | rarely anything |
+| **People and HR** | How the team is organised and run, internally | `business-staffing`, `process-employee-onboarding`, `policy-hr` | a block per staff policy |
+| **Operations and Tools** | How work gets done and the tools it runs on, internally | `experience-technology-platforms`, `sales-process`, `process-runbooks`, `organization-suppliers`, `agent-capabilities` | a block per recurring process |
+| **Agent Rules** | What agents may and may not do, what needs approval, when they hand off | `agent-allowed-actions`, `process-approvals`, `process-hand-off-rules`, `agent-disclosure`, `content-compliance-regulations`, `risk-sensitive-topics` | rarely anything |
 
-The third column is where to look first, not where the truth has to go — but
-look, because writing a claim into a new block while a managed block already
-holds it is exactly the duplicate "One truth, one home" below is about. **Team is the row that catches
-people out:** there is no managed `Team` stack, which does not mean there is no
-managed home for the topic.
+The third column is the main blocks, not all of them: `GET /blocks` lists the
+rest. It is where to look first, not where the truth has to go — but look,
+because writing a claim into a new block while a managed block already holds it
+is exactly the duplicate "One truth, one home" below is about. **People is the
+row that catches people out:** leadership, the team, open roles and hiring live
+in `Company`, and only departments, staff onboarding and staff policies in
+`People and HR`.
 
-Those slugs cover the seven generic stacks only, as they stood on 2026-09-16.
-**They are not the whole managed map.** Alongside the generic stacks it carries
-industry ones — `Restaurant` (`restaurant-menu`, `restaurant-signature-dish`),
-`Fund` (`fund-thesis`, `check-size`, `fund-portfolio`), plus `Agency`,
-`Consulting`, `Education`, `Real Estate`, `Farm`, `Non-profit` and many more —
-and those hold exactly the topics you would otherwise invent a custom stack for.
-**Scan `GET /stacks` for one that matches the business before proposing any
-structure.**
+There are no industry stacks. A topic specific to the business (a menu, a fund
+thesis, a service line) goes in a custom stack, or as a block in the managed
+stack it fits.
 
 **Two calls, two purposes — don't cross them.** Unfiltered, `GET /stacks` and
 `GET /blocks` return the whole catalogue the key can reach, including stacks this
-project has never adopted. That is what you scan for an industry stack, and
-scanning it with `in_use_only=true` on is precisely how you miss the one you were
-looking for. With the filter on you get this project's own map, which is what you
-want when grounding an answer and during first connect, where the unfiltered
-catalogue makes an empty workspace look populated. Both carry `managed` and the
-parent stack on every item.
+project has never adopted. That is what you scan for a home before creating
+anything, and scanning it with `in_use_only=true` on is precisely how you miss the
+one you were looking for. With the filter on you get this project's own map, which
+is what you want when grounding an answer and during first connect, where the
+unfiltered catalogue makes an empty workspace look populated. Both carry `managed`
+and the parent stack on every item.
 
 **A home named above may not be adopted here.** Being in the catalogue and being
-in this project's map are different things: `Growth` and `Recruiting` are often
-absent from the map even though the table sends Goals and hiring to them, and
-then `GET /blocks?in_use_only=true` returns none of those blocks. Check with the
+in this project's map are different things: a new project starts with `Company`
+only, so the other ten are absent from its map until someone adds them, and then
+`GET /blocks?in_use_only=true` returns none of their blocks. Check with the
 filter on before concluding anything — and when a home exists in the catalogue
 but not in this project, **say so and propose adding that stack to the
 project.** `POST /stacks/{stackId}/use` adds it, with no body, and `inUse` on
@@ -90,7 +91,7 @@ the other. Leave the managed block answering and have the custom block defer to
 it by name in its own fact — the same pointer remedy as a merge (see Scale).
 
 A gap in the checklist is a finding, not a failure. A two-person company with no
-sales process has nothing to write in that row, and an honest empty row beats a
+investors has nothing to write in that row, and an honest empty row beats a
 block of plausible filler. Gaps become tasks (see Provenance and honesty).
 
 ### Set up first: an agentic startup
@@ -98,28 +99,27 @@ block of plausible filler. Gaps become tasks (see Provenance and honesty).
 An agentic startup, one that runs support, sales or onboarding through AI
 agents, gets the same questions first from its own agents and from its
 customers' agents. Set up these six areas before anything else, in this order.
-The seven areas above still apply: this is the order to fill them in, plus the
-custom stacks this kind of business needs from day one.
+The stacks above still apply: this is the order to fill them in.
 
 | Area | An agent should be able to answer | Managed blocks that already hold it | Usually added as custom |
 |---|---|---|---|
-| **Product** | How the product works, feature by feature, what it connects to, and what is coming | `product-list`, `product-features`, `product-faq`, `product-roadmap`, stack `Product` | a `Product Manual` stack: one block per area of the product, plus how-tos and known issues |
-| **Delivery** | How a customer gets set up, how they get help, and when we escalate | `customer-service`, `user-onboarding`, stack `Experience` | a `Delivery` stack: implementation, what the customer provides, escalation |
-| **Pricing** | What it costs and how it is billed | `monetization-model`, stack `Foundations` | a `Pricing` stack: one block per plan |
-| **Market and positioning** | Who it is for, who qualifies, why they choose us, how we talk to them | `ideal-customer` (stack `Customer`); `sales-customer-profile`, `sales-buyer-persona` (stack `Sales`); `value-proposition`, `brand-positioning`, `brand-tone` (stack `Brand`) | rarely anything |
-| **Trust** | How customer data is handled, secured and kept compliant | none | a `Trust` stack: security, data handling, compliance, subprocessors |
-| **Company and numbers** | How to reach us, who runs it, what we are aiming for this year | `contact-details`, `operations-leadership-bios` (stack `Operations`); `year-goals` (stack `Growth`) | rarely anything |
+| **Product** | How the product works, feature by feature, what it connects to, and what is coming | `product-list`, `product-features`, `product-how-it-works`, `product-integrations`, `product-manual`, `product-known-issues`, `product-roadmap` (stack `Products and Services`) | a block per area of the product, next to `product-manual` |
+| **Delivery** | How a customer gets set up, how they get help, and when we escalate | `process-customer-journey`, `product-requirements`, `process-response-times` (stack `Products and Services`); `process-hand-off-rules` (stack `Agent Rules`) | a block per implementation step, once the journey stops being enough |
+| **Pricing** | What it costs and how it is billed | `commercial-pricing`, `commercial-payment-terms`, `product-discount` (stack `Products and Services`); `monetization-model` (stack `Strategy`) | a block per plan |
+| **Market and positioning** | Who it is for, why they choose us, how we talk to them | `ideal-customer`, `audience-segments` (stack `Target Market`); `brand-positioning`, `key-messages`, `brand-tone` (stack `Brand Guidelines`) | rarely anything |
+| **Trust** | How customer data is handled, secured and kept compliant | `policy-security`, `privacy-policy`, `risk-regulations` (stack `Customer Policies`) | a block for subprocessors |
+| **Company and numbers** | How to reach us, who runs it, what we are aiming for this year | `contact-details`, `operations-leadership-bios` (stack `Company`); `year-goals` (stack `Strategy`) | rarely anything |
 
 Product and Delivery come first because they are what a support agent answers
 from. An agent that replies to customers before those exist answers from
-absence, and either escalates everything or guesses. `Experience`,
-`Foundations` and `Growth` are often not in use in a new project; add them as
-described above.
+absence, and either escalates everything or guesses. Only `Company` is in a new
+project: add `Products and Services`, `Agent Rules`, `Target Market`,
+`Brand Guidelines`, `Customer Policies` and `Strategy` as described above.
 
 ## Custom is the normal path
 
-Managed stacks are a starting map — the generic seven, plus an industry stack if
-one fits. Even with both, a real business has edges the map doesn't reach.
+Managed stacks are a starting map of what most businesses share. A real business
+still has edges the map doesn't reach.
 Create a custom stack or block whenever:
 
 - a managed block's title nearly fits, but you would have to bend the content
@@ -130,9 +130,8 @@ Create a custom stack or block whenever:
   would make it harder to find rather than easier.
 
 **Kettlewell Veterinary Group** — an invented example used throughout this file
-— covers the seven areas above and checks the managed map for an industry stack
-first (there is a `Dentist` and a `Doctor`, but nothing veterinary), then adds
-what the map doesn't carry: a custom
+— covers the managed stacks above, then adds what the map doesn't carry: a
+custom
 `Clinical Services` stack with one block per service line (preventive care,
 dentistry, orthopaedic surgery, diagnostic imaging), a custom `Practices` stack
 with one block per site, and a custom `Referral Network` stack for the partner
@@ -338,24 +337,23 @@ a winner silently — the disagreement is usually a real disagreement inside the
 business, and resolving it is theirs to do, not yours.
 
 Overlap is easiest to create at the seams between areas, where a claim
-plausibly belongs to either side. Owners below are areas, not stack titles you
-must adopt — read "Goals" as whichever stack holds your targets. `Pricing` is an
-area most businesses split out even though the managed map has no block for it.
+plausibly belongs to either side. Owners below are managed stacks; a custom stack that
+takes over part of one takes over its seams too.
 
 | Seam | Owner | Managed home | Not the owner |
 |---|---|---|---|
-| Who we sell to | **Customer** — the market: segments, audience, what they care about | `audience-segments`, `ideal-customer` | Sales, which owns the filter, not the market |
-| Who we pursue | **Sales** — ICP, triggers, qualification *and* disqualification | `sales-customer-profile`, `sales-ICP-triggers`, `sales-buyer-persona` | Customer, which describes the market without qualifying it |
-| Why we win | **Brand** — positioning, value proposition | `brand-positioning`, `value-proposition` | Product (what the feature does), Sales (how to argue it in a deal) |
-| What it costs | **Pricing** — one block per tier or service | none: no managed pricing block exists | Product — except standing discount codes, which do have a managed home in `product-discount` — and Sales, which owns deal-level discretion and approval |
-| Numbers we chase | **Goals** — company targets, OKRs, how they're measured | `year-goals`, `growth-okrs`, `growth-metrics` | Sales (`sales-objectives-metrics` is quota and pipeline, not company targets), Product (roadmap dates) |
-| People | **Team** — roles, leadership, hiring | `operations-leadership-bios`, `business-staffing`, `hr-process` | Operations, which owns contact details and policies, not people |
+| Who we sell to | **Target Market**: segments, what they need, how they buy | `ideal-customer`, `audience-segments`, `customer-buying-process` | Operations and Tools, which owns how a deal runs, not who is out there |
+| How a deal runs | **Operations and Tools**: the sales process | `sales-process` | Target Market (who buys and how they decide), Products and Services (how to book or get a quote) |
+| Why we win | **Brand Guidelines**: positioning, key messages | `brand-positioning`, `key-messages` | Products and Services (what the feature does), Customer Proof (the evidence) |
+| What it costs | **Products and Services**: one block per tier or service | `commercial-pricing`, `product-discount` | Strategy (`monetization-model` is how the company makes money, not a price list), Target Market (`commercial-discount-rules` is who may give a discount) |
+| Numbers we chase | **Strategy**: company targets and how they're measured | `year-goals`, `growth-turnover`, `metric-metric-definitions` | Company (`metric-headline-figures` is the public figures), Products and Services (roadmap dates) |
+| People | **Company**: leadership, team, open roles, hiring; **People and HR**: departments and staff policies | `operations-leadership-bios`, `person-team`, `hr-process`, `business-staffing` | Operations and Tools, which owns processes and tools, not people |
+| What a customer is told | **Customer Policies**: terms, refunds, privacy, security | `policy-terms-of-service`, `privacy-policy`, `policy-security` | Agent Rules, which is internal and never quoted to a customer |
 
-The ICP is the seam that goes wrong most often, because the managed map itself
-carries it twice: `ideal-customer` under Customer and `sales-customer-profile`
-under Sales. They are not duplicates if you keep the split above — the first
-describes who is out there, the second decides who you chase — but write them
-without deciding that, and they diverge.
+Customer Policies against Agent Rules is the seam that goes wrong most often,
+because both read like rules. They are not duplicates if you keep the split
+above (the first is what a customer is told, the second is what an agent may
+do), but write an internal rule into a policy and agents quote it to customers.
 
 An area the checklist doesn't name — a channel, a partner programme, a
 franchise model — gets the same treatment: when you create it, decide what it
@@ -365,8 +363,9 @@ are set on create, never updated, and not what an agent reads when it grounds on
 facts (see Descriptions above).
 
 These apply to custom stacks too, and matter more there: a custom
-`Enterprise Sales` stack must defer to `Sales` on process and to `Pricing` on
-rates, or the two drift apart within a month.
+`Enterprise Sales` stack must defer to `Operations and Tools` on the sales
+process and to `Products and Services` on rates, or they drift apart within a
+month.
 
 ## The replace rule
 
