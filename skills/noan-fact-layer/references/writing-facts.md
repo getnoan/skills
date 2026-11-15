@@ -349,6 +349,7 @@ takes over part of one takes over its seams too.
 | Numbers we chase | **Strategy**: company targets and how they're measured | `year-goals`, `growth-turnover`, `metric-metric-definitions` | Company (`metric-headline-figures` is the public figures), Products and Services (roadmap dates) |
 | People | **Company**: leadership, team, open roles, hiring; **People and HR**: departments and staff policies | `operations-leadership-bios`, `person-team`, `hr-process`, `business-staffing` | Operations and Tools, which owns processes and tools, not people |
 | What a customer is told | **Customer Policies**: terms, refunds, privacy, security | `policy-terms-of-service`, `privacy-policy`, `policy-security` | Agent Rules, which is internal and never quoted to a customer |
+| What agents do | **Operations and Tools**: what each agent is and how to ask it for something; **Agent Rules**: what an agent may do and its limits | `agent-capabilities`, `agent-allowed-actions` | Customer Policies (`ecomm-returns` is the refund a customer gets, not how much an agent may refund on its own) |
 
 Customer Policies against Agent Rules is the seam that goes wrong most often,
 because both read like rules. They are not duplicates if you keep the split

@@ -502,11 +502,10 @@ const SLUG = /^[a-z][A-Za-z0-9]*(-[A-Za-z0-9]+)+$/;
 
 function slugsNamedInDoc() {
   const slugs = new Set();
-  // Table rows: only the "managed blocks" column, so a hyphenated word in prose
-  // inside some other cell can never be mistaken for a slug.
+  // Table rows: every backticked token in any cell, since the seam table names
+  // slugs in its last column too. Prose stays out because it isn't backticked.
   for (const row of text.writing.split("\n").filter((l) => l.startsWith("|"))) {
-    const cell = row.split("|")[3] ?? "";
-    for (const [, token] of cell.matchAll(/`([^`]+)`/g)) {
+    for (const [, token] of row.matchAll(/`([^`]+)`/g)) {
       if (SLUG.test(token)) slugs.add(token);
     }
   }
